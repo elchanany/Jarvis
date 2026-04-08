@@ -1,0 +1,706 @@
+[
+  {
+    "text": "shut down the computer",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "shutdown"
+    }
+  },
+  {
+    "text": "turn off the pc",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "shutdown"
+    }
+  },
+  {
+    "text": "lock the screen",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "lock"
+    }
+  },
+  {
+    "text": "please lock we are closed for today",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "lock"
+    }
+  },
+  {
+    "text": "shut down the computer",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "shutdown"
+    }
+  },
+  {
+    "text": "turn off the pc",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "shutdown"
+    }
+  },
+  {
+    "text": "lock the screen",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "lock"
+    }
+  },
+  {
+    "text": "please lock we are closed for today",
+    "expected_tool": "system_status",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "lock"
+    }
+  },
+  {
+    "text": "turn up the volume",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "up"
+    }
+  },
+  {
+    "text": "increase volume",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "up"
+    }
+  },
+  {
+    "text": "turn it down",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "down"
+    }
+  },
+  {
+    "text": "mutet now",
+    "expected_tool": "control_volume",
+    "difficulty": "hard",
+    "expected_params": {
+      "action": "mute"
+    }
+  },
+  {
+    "text": "mute speaker",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "mute"
+    }
+  },
+  {
+    "text": "play next song",
+    "expected_tool": "control_media",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "next"
+    }
+  },
+  {
+    "text": "forward",
+    "expected_tool": "control_media",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "next"
+    }
+  },
+  {
+    "text": "skip track",
+    "expected_tool": "control_media",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "next"
+    }
+  },
+  {
+    "text": "stop the music",
+    "expected_tool": "stop_media",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "pause playing for a second",
+    "expected_tool": "stop_media",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "turn up the volume",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "up"
+    }
+  },
+  {
+    "text": "increase volume",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "up"
+    }
+  },
+  {
+    "text": "turn it down",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "down"
+    }
+  },
+  {
+    "text": "mutet now",
+    "expected_tool": "control_volume",
+    "difficulty": "hard",
+    "expected_params": {
+      "action": "mute"
+    }
+  },
+  {
+    "text": "mute speaker",
+    "expected_tool": "control_volume",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "mute"
+    }
+  },
+  {
+    "text": "play next song",
+    "expected_tool": "control_media",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "next"
+    }
+  },
+  {
+    "text": "forward",
+    "expected_tool": "control_media",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "next"
+    }
+  },
+  {
+    "text": "skip track",
+    "expected_tool": "control_media",
+    "difficulty": "easy",
+    "expected_params": {
+      "action": "next"
+    }
+  },
+  {
+    "text": "stop the music",
+    "expected_tool": "stop_media",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "pause playing for a second",
+    "expected_tool": "stop_media",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "play a song by shlomo artzi on spotify",
+    "expected_tool": "spotify_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "track_name": "shlomo artzi"
+    }
+  },
+  {
+    "text": "play mashina spotify",
+    "expected_tool": "spotify_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "track_name": "mashina"
+    }
+  },
+  {
+    "text": "play omer adam",
+    "expected_tool": "spotify_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "track_name": "omer adam"
+    }
+  },
+  {
+    "text": "put on a youtube song by noa kirel",
+    "expected_tool": "youtube_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "topic": "noa kirel"
+    }
+  },
+  {
+    "text": "open youtube on channel 12 news",
+    "expected_tool": "youtube_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "topic": "channel 12 news"
+    }
+  },
+  {
+    "text": "play a song by shlomo artzi on spotify",
+    "expected_tool": "spotify_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "track_name": "shlomo artzi"
+    }
+  },
+  {
+    "text": "play mashina spotify",
+    "expected_tool": "spotify_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "track_name": "mashina"
+    }
+  },
+  {
+    "text": "play omer adam",
+    "expected_tool": "spotify_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "track_name": "omer adam"
+    }
+  },
+  {
+    "text": "put on a youtube song by noa kirel",
+    "expected_tool": "youtube_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "topic": "noa kirel"
+    }
+  },
+  {
+    "text": "open youtube on channel 12 news",
+    "expected_tool": "youtube_play",
+    "difficulty": "easy",
+    "expected_params": {
+      "topic": "channel 12 news"
+    }
+  },
+  {
+    "text": "open browser",
+    "expected_tool": "launch_app",
+    "difficulty": "easy",
+    "expected_params": {
+      "app_name": "browser"
+    }
+  },
+  {
+    "text": "open chrome",
+    "expected_tool": "launch_app",
+    "difficulty": "easy",
+    "expected_params": {
+      "app_name": "chrome"
+    }
+  },
+  {
+    "text": "open facebook website",
+    "expected_tool": "open_url",
+    "difficulty": "easy",
+    "expected_params": {
+      "url": "https://facebook.com"
+    }
+  },
+  {
+    "text": "go to google",
+    "expected_tool": "open_url",
+    "difficulty": "easy",
+    "expected_params": {
+      "url": "https://google.com"
+    }
+  },
+  {
+    "text": "open calculator",
+    "expected_tool": "launch_app",
+    "difficulty": "easy",
+    "expected_params": {
+      "app_name": "calculator"
+    }
+  },
+  {
+    "text": "open browser",
+    "expected_tool": "launch_app",
+    "difficulty": "easy",
+    "expected_params": {
+      "app_name": "browser"
+    }
+  },
+  {
+    "text": "open chrome",
+    "expected_tool": "launch_app",
+    "difficulty": "easy",
+    "expected_params": {
+      "app_name": "chrome"
+    }
+  },
+  {
+    "text": "open facebook website",
+    "expected_tool": "open_url",
+    "difficulty": "easy",
+    "expected_params": {
+      "url": "https://facebook.com"
+    }
+  },
+  {
+    "text": "go to google",
+    "expected_tool": "open_url",
+    "difficulty": "easy",
+    "expected_params": {
+      "url": "https://google.com"
+    }
+  },
+  {
+    "text": "open calculator",
+    "expected_tool": "launch_app",
+    "difficulty": "easy",
+    "expected_params": {
+      "app_name": "calculator"
+    }
+  },
+  {
+    "text": "what is the weather right now in tel aviv?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "who won the last us elections?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what is the news today in israel?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "who farted in the knesset?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "which stock is going up today?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "give me a summary of bitcoin status",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "who is elon musk?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "where is argentina located",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "search when the missiles are falling",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "why is the sky blue",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what is the weather right now in tel aviv?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "who won the last us elections?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what is the news today in israel?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "who farted in the knesset?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "which stock is going up today?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "give me a summary of bitcoin status",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "who is elon musk?",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "where is argentina located",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "search when the missiles are falling",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "why is the sky blue",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "remember that i like eating burgers",
+    "expected_tool": "remember_fact",
+    "difficulty": "easy",
+    "expected_params": {
+      "fact": "likes eating burgers"
+    }
+  },
+  {
+    "text": "keep in mind i have a meeting tomorrow at 9",
+    "expected_tool": "remember_fact",
+    "difficulty": "hard",
+    "expected_params": {
+      "fact": "meeting tomorrow at 9"
+    }
+  },
+  {
+    "text": "forget what i said about the burger",
+    "expected_tool": "forget_fact",
+    "difficulty": "easy",
+    "expected_params": {
+      "fact_to_forget": "burger"
+    }
+  },
+  {
+    "text": "erase the meeting from your memory",
+    "expected_tool": "forget_fact",
+    "difficulty": "easy",
+    "expected_params": {
+      "fact_to_forget": "meeting"
+    }
+  },
+  {
+    "text": "what do you know about me?",
+    "expected_tool": "recall_memories",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "remind me what we talked about",
+    "expected_tool": "recall_memories",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "remember that i like eating burgers",
+    "expected_tool": "remember_fact",
+    "difficulty": "easy",
+    "expected_params": {
+      "fact": "likes eating burgers"
+    }
+  },
+  {
+    "text": "keep in mind i have a meeting tomorrow at 9",
+    "expected_tool": "remember_fact",
+    "difficulty": "hard",
+    "expected_params": {
+      "fact": "meeting tomorrow at 9"
+    }
+  },
+  {
+    "text": "forget what i said about the burger",
+    "expected_tool": "forget_fact",
+    "difficulty": "easy",
+    "expected_params": {
+      "fact_to_forget": "burger"
+    }
+  },
+  {
+    "text": "erase the meeting from your memory",
+    "expected_tool": "forget_fact",
+    "difficulty": "easy",
+    "expected_params": {
+      "fact_to_forget": "meeting"
+    }
+  },
+  {
+    "text": "what do you know about me?",
+    "expected_tool": "recall_memories",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "remind me what we talked about",
+    "expected_tool": "recall_memories",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what time is it?",
+    "expected_tool": "get_time",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "wtih tim is it?",
+    "expected_tool": "get_time",
+    "difficulty": "hard",
+    "expected_params": {}
+  },
+  {
+    "text": "what is todays date",
+    "expected_tool": "get_date",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what day is today",
+    "expected_tool": "get_date",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what time is it?",
+    "expected_tool": "get_time",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "wtih tim is it?",
+    "expected_tool": "get_time",
+    "difficulty": "hard",
+    "expected_params": {}
+  },
+  {
+    "text": "what is todays date",
+    "expected_tool": "get_date",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what day is today",
+    "expected_tool": "get_date",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what time is it?",
+    "expected_tool": "get_time",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "wtih tim is it?",
+    "expected_tool": "get_time",
+    "difficulty": "hard",
+    "expected_params": {}
+  },
+  {
+    "text": "what is todays date",
+    "expected_tool": "get_date",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "what day is today",
+    "expected_tool": "get_date",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "hey how are you?",
+    "expected_tool": "none",
+    "difficulty": "chat",
+    "expected_params": {}
+  },
+  {
+    "text": "i think you are really smart",
+    "expected_tool": "none",
+    "difficulty": "chat",
+    "expected_params": {}
+  },
+  {
+    "text": "exercise 20 plus 5",
+    "expected_tool": "none",
+    "difficulty": "chat",
+    "expected_params": {}
+  },
+  {
+    "text": "write me a short poem about a dog",
+    "expected_tool": "none",
+    "difficulty": "chat",
+    "expected_params": {}
+  },
+  {
+    "text": "when was the first operating system released",
+    "expected_tool": "smart_research",
+    "difficulty": "easy",
+    "expected_params": {}
+  },
+  {
+    "text": "crasj of a teen ysterday",
+    "expected_tool": "smart_research",
+    "difficulty": "hard",
+    "expected_params": {}
+  },
+  {
+    "text": "can i drink water?",
+    "expected_tool": "none",
+    "difficulty": "chat",
+    "expected_params": {}
+  },
+  {
+    "text": "good night",
+    "expected_tool": "none",
+    "difficulty": "chat",
+    "expected_params": {}
+  }
+]

@@ -1,0 +1,43 @@
+# Jarvis Project — Python Dependencies
+# Core Web Framework
+flask>=3.0.0
+flask-cors
+
+# Ollama Client
+requests>=2.31.0
+
+# Agent Tools — Web & Search
+duckduckgo-search>=6.0.0
+wikipedia
+beautifulsoup4
+lxml
+
+# System Control
+pycaw
+pyautogui
+pygetwindow
+comtypes
+psutil
+pywin32
+pillow
+
+# Audio (STT)
+SpeechRecognition
+pyaudio
+sounddevice
+numpy
+
+# Memory / Storage
+# (uses built-in sqlite3 + json)
+
+# Telegram
+telethon
+
+# LangChain (tool decorators)
+langchain-core>=0.3.0
+
+# Native App Window
+pywebview>=5.0.0
+
+# Utilities
+python-dotenv

@@ -1,0 +1,67 @@
+# ===== Jarvis Project — .gitignore =====
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual Environment
+venv/
+.venv/
+env/
+.env/
+
+# Environment variables (contains API keys!)
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Models & Large Binary Files
+models/
+model_cache/
+*.gguf
+*.bin
+*.safetensors
+*.onnx
+*.pt
+*.pth
+*.ot
+*.blob
+*.xml
+
+# Database & User Data (personal)
+jarvis_chats.db
+session_memory.json
+user_memories.json
+user_data.json
+user_profile.json
+known_devices.json
+jarvis_session.session
+
+# Uploads & Sounds (user generated)
+uploads/
+sounds/
+
+# Benchmark & Test outputs
+benchmark_results.json
+test_gemma_show.json
+test_raw_chunks.txt
+*.log
+
+# Cache
+.cache/
+
+# OS
+Thumbs.db
+.DS_Store
+desktop.ini

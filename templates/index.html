@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Jarvis Neural Interface</title>
+    <meta name="description" content="Jarvis AI Personal Assistant">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=Heebo:wght@300;400;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="/static/style.css?v={{ range(10000, 99999) | random }}">
+    <!-- Markdown rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@9/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Top Bar -->
+        <header class="top-bar glass-panel">
+            <div class="top-right">
+                <button id="btn-sidebar" class="icon-btn sidebar-toggle" title="תפריט"><i class="fa-solid fa-bars"></i></button>
+                <button id="btn-settings" class="icon-btn" title="הגדרות מתקדמות"><i class="fa-solid fa-gear"></i></button>
+                <h1>JARVIS</h1>
+            </div>
+            <div class="top-center">
+                <div class="model-panel">
+                    <div class="model-selector-wrap" id="model-trigger">
+                        <span id="model-dot" class="dot off"></span>
+                        <span id="model-name-display" class="model-name-display">טוען...</span>
+                        <span id="model-size-badge" class="model-size-badge"></span>
+                        <i class="fa-solid fa-chevron-down model-chevron"></i>
+                    </div>
+                    <span id="model-status-text" class="model-status-text">בודק חיבור...</span>
+                </div>
+                <!-- Hidden native select for value tracking -->
+                <select id="model-select" class="hidden">
+                    <option value="gemma4:e4b">gemma4:e4b</option>
+                </select>
+                <!-- Custom dropdown popup -->
+                <div id="model-dropdown" class="model-dropdown hidden">
+                    <div class="model-dropdown-header">
+                        <i class="fa-solid fa-microchip"></i> בחר מודל
+                    </div>
+                    <div id="model-dropdown-list" class="model-dropdown-list">
+                        <!-- Populated dynamically -->
+                    </div>
+                </div>
+            </div>
+            <div class="top-left">
+                <!-- Segmented Vision Control -->
+                <div class="vision-toggle-group" id="vision-toggle-group">
+                    <button type="button" class="vision-btn active" data-val="vlm" title="ראייה טבעית עם המודל הראשי">
+                        <i class="fa-regular fa-eye"></i> טבעי (VLM)
+                    </button>
+                    <button type="button" class="vision-btn" data-val="sub_agent" title="סוכן משנה מהיר לקואורדינטות">
+                        <i class="fa-solid fa-robot"></i> סוכן מהיר
+                    </button>
+                </div>
+
+                <button id="btn-load" class="ctrl-btn load-btn" title="טען מודל"><i class="fa-solid fa-bolt"></i> טען</button>
+                <button id="btn-unload" class="ctrl-btn unload-btn" title="כבה מודל"><i class="fa-solid fa-power-off"></i> כבה</button>
+                <div id="live-metrics" class="live-metrics hidden">
+                    <span id="metric-tps">0 tok/s</span>
+                    <span class="sep">|</span>
+                    <span id="metric-time">0s</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Model Info Bar -->
+        <div id="model-info-bar" class="model-info-bar hidden">
+            <span id="model-info-text"></span>
+            <button id="model-info-close" class="info-close"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+
+        <!-- RIGHT Sidebar -->
+        <div id="sidebar-overlay" class="sidebar-overlay hidden"></div>
+        <aside id="sidebar" class="sidebar hidden">
+            <div class="sb-header">
+                <h3><i class="fa-solid fa-comments"></i> שיחות</h3>
+                <button id="sb-close" class="info-close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+
+            <button id="sb-new-chat" class="sb-new-chat"><i class="fa-solid fa-plus"></i> שיחה חדשה</button>
+            
+            <div id="sb-conv-list" class="sb-conv-list">
+                <!-- Conversations loaded dynamically -->
+            </div>
+
+            <div class="sb-divider"></div>
+
+            <!-- Settings inside sidebar -->
+            <!-- Sidebar ends here -->
+        </aside>
+
+        <!-- Chat Area -->
+        <main id="chat-box" class="chat-area">
+            <div class="welcome-block">
+                <div class="welcome-icon"><i class="fa-solid fa-microchip"></i></div>
+                <h2>JARVIS NEURAL CORE</h2>
+                <p>שמע · ראייה · פעולות מחשב</p>
+                <div class="welcome-caps">
+                    <span><i class="fa-solid fa-microphone"></i> שמע</span>
+                    <span><i class="fa-solid fa-image"></i> ראייה</span>
+                    <span><i class="fa-solid fa-terminal"></i> פעולות</span>
+                </div>
+            </div>
+        </main>
+
+        <!-- Floating Input Bar -->
+        <footer class="input-bar glass-panel">
+            <div id="media-preview" class="media-preview hidden"></div>
+            <div class="input-row">
+                <button id="btn-upload" class="icon-btn" title="צרף תמונה"><i class="fa-solid fa-paperclip"></i></button>
+                <textarea id="text-input" placeholder="כתוב לג'ארביס..." rows="1"></textarea>
+                <button id="btn-mic" class="icon-btn mic-btn" title="הקלט קול"><i id="mic-icon" class="fa-solid fa-microphone"></i></button>
+                <button id="btn-send" class="icon-btn send-btn" title="שלח"><i id="send-icon" class="fa-solid fa-paper-plane"></i></button>
+            </div>
+            <input type="file" id="file-upload" accept="image/*" class="hidden">
+        </footer>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="settings-modal hidden">
+        <div class="settings-modal-content glass-panel">
+            <header class="settings-header">
+                <h2><i class="fa-solid fa-gear"></i> הגדרות מערכת</h2>
+                <button id="settings-close" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+            </header>
+            
+            <div class="settings-body">
+                <!-- Engine Toggle -->
+                <section class="settings-section">
+                    <h3><i class="fa-solid fa-brain"></i> מנוע ליבה (Engine)</h3>
+                    <div class="engine-toggle-group" id="engine-toggle-group">
+                        <button type="button" class="engine-btn active" data-val="local">
+                            <i class="fa-solid fa-microchip"></i> ריצה מקומית (Ollama)
+                        </button>
+                        <button type="button" class="engine-btn" data-val="cloud">
+                            <i class="fa-solid fa-cloud"></i> ענן (Claude / GPT)
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Secrets / API Keys -->
+                <section class="settings-section" id="cloud-settings-section">
+                    <h3><i class="fa-solid fa-key"></i> מפתחות התחברות (API)</h3>
+                    <label class="sp-label">Anthropic API Key (Claude)</label>
+                    <input type="password" id="env-anthropic" class="sp-input" placeholder="sk-ant-...">
+                    
+                    <label class="sp-label">OpenAI API Key (GPT)</label>
+                    <input type="password" id="env-openai" class="sp-input" placeholder="sk-...">
+                </section>
+
+                <!-- Prompt Config -->
+                <section class="settings-section">
+                    <h3><i class="fa-solid fa-sliders"></i> הגדרות פרומפט מותאם</h3>
+                    <label class="sp-label">פרסונה</label>
+                    <textarea id="sp-persona" rows="2" class="sp-textarea"></textarea>
+
+                    <label class="sp-label">סגנון תגובה</label>
+                    <textarea id="sp-style" rows="2" class="sp-textarea"></textarea>
+
+                    <label class="sp-label">חוקים מותאמים</label>
+                    <textarea id="sp-rules" rows="3" class="sp-textarea"></textarea>
+                </section>
+            </div>
+            
+            <footer class="settings-footer">
+                <span id="settings-status" class="settings-status"></span>
+                <button id="btn-save-settings" class="ctrl-btn load-btn"><i class="fa-solid fa-save"></i> שמור הגדרות</button>
+            </footer>
+        </div>
+    </div>
+
+    <script src="/static/app.js?v={{ range(10000, 99999) | random }}"></script>
+</body>
+</html>

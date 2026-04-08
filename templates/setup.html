@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis — First Time Setup</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #00e5ff;
+            --primary-dim: rgba(0,229,255,0.1);
+            --green: #4ade80;
+            --green-dim: rgba(74,222,128,0.12);
+            --red: #f87171;
+            --yellow: #facc15;
+            --bg: #080c10;
+            --surface: #0f1521;
+            --surface2: #141d2b;
+            --border: rgba(255,255,255,0.08);
+            --text: #e2e8f0;
+            --text2: #94a3b8;
+            --text3: #475569;
+            --font: 'Outfit', sans-serif;
+            --mono: 'JetBrains Mono', monospace;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            background: var(--bg);
+            font-family: var(--font);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed; inset: 0;
+            background: radial-gradient(ellipse at 20% 50%, rgba(0,229,255,0.04) 0%, transparent 60%),
+                        radial-gradient(ellipse at 80% 20%, rgba(129,140,248,0.04) 0%, transparent 60%);
+            pointer-events: none;
+        }
+        
+        .setup-container {
+            width: 100%;
+            max-width: 680px;
+            padding: 24px;
+            animation: fadeIn 0.6s ease;
+        }
+        
+        /* Header */
+        .logo-area {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .logo-img {
+            width: 80px; height: 80px;
+            border-radius: 20px;
+            object-fit: cover;
+            margin-bottom: 16px;
+            border: 1px solid var(--border);
+            display: none; /* hidden until logo added */
+        }
+        .logo-img.loaded { display: block; margin: 0 auto 16px; }
+        .logo-icon {
+            width: 80px; height: 80px;
+            border-radius: 20px;
+            background: var(--primary-dim);
+            border: 1px solid rgba(0,229,255,0.3);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 2.2em;
+            color: var(--primary);
+        }
+        .logo-title {
+            font-size: 2.8em;
+            font-weight: 900;
+            letter-spacing: 8px;
+            background: linear-gradient(135deg, #00e5ff, #818cf8);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .logo-sub {
+            font-size: 0.85em;
+            color: var(--text3);
+            letter-spacing: 2px;
+            margin-top: 4px;
+        }
+
+        /* Card */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 24px;
+            margin-bottom: 16px;
+        }
+        .card-title {
+            font-size: 0.75em;
+            font-weight: 600;
+            letter-spacing: 2px;
+            color: var(--text3);
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title i { color: var(--primary); font-size: 1.1em; }
+
+        /* Steps */
+        .step {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 12px 0;
+            border-bottom: 1px solid var(--border);
+            transition: opacity 0.3s;
+        }
+        .step:last-child { border-bottom: none; padding-bottom: 0; }
+        .step-icon {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.95em; flex-shrink: 0;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid var(--border);
+            color: var(--text3);
+        }
+        .step.done .step-icon { background: var(--green-dim); border-color: rgba(74,222,128,0.3); color: var(--green); }
+        .step.active .step-icon { background: var(--primary-dim); border-color: rgba(0,229,255,0.3); color: var(--primary); animation: pulse 1.5s ease infinite; }
+        .step.error .step-icon { background: rgba(248,113,113,0.1); border-color: rgba(248,113,113,0.3); color: var(--red); }
+        .step-text { flex: 1; }
+        .step-name { font-size: 0.9em; font-weight: 600; }
+        .step-desc { font-size: 0.75em; color: var(--text3); margin-top: 2px; }
+        .step-badge {
+            font-size: 0.7em;
+            font-family: var(--mono);
+            padding: 2px 8px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+            color: var(--text3);
+        }
+        .step.done .step-badge { background: var(--green-dim); color: var(--green); }
+        .step.error .step-badge { background: rgba(248,113,113,0.1); color: var(--red); }
+        .step.active .step-badge { background: var(--primary-dim); color: var(--primary); }
+
+        /* Terminal */
+        .terminal {
+            background: #050810;
+            border: 1px solid rgba(0,229,255,0.15);
+            border-radius: 12px;
+            padding: 14px 16px;
+            font-family: var(--mono);
+            font-size: 0.78em;
+            color: #94a3b8;
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 12px;
+            line-height: 1.7;
+        }
+        .terminal::-webkit-scrollbar { width: 4px; }
+        .terminal::-webkit-scrollbar-thumb { background: rgba(0,229,255,0.2); border-radius: 2px; }
+        .terminal .t-line { display: flex; gap: 8px; }
+        .terminal .t-prefix { color: var(--primary); }
+        .terminal .t-ok { color: var(--green); }
+        .terminal .t-err { color: var(--red); }
+        .terminal .t-warn { color: var(--yellow); }
+        .terminal .t-cursor { display: inline-block; width: 8px; height: 14px; background: var(--primary); animation: blink 1s step-end infinite; vertical-align: middle; }
+        
+        /* Model Selection */
+        .model-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 4px;
+        }
+        .model-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            position: relative;
+        }
+        .model-card:hover { border-color: rgba(0,229,255,0.3); background: rgba(0,229,255,0.04); }
+        .model-card.selected { border-color: var(--primary); background: var(--primary-dim); }
+        .model-card.selected::after {
+            content: '✓';
+            position: absolute; top: 10px; left: 10px;
+            width: 20px; height: 20px;
+            background: var(--primary); color: #000;
+            border-radius: 50%; font-size: 0.7em; font-weight: 900;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .model-name { font-weight: 700; font-size: 0.95em; margin-bottom: 4px; }
+        .model-size { font-size: 0.72em; color: var(--text3); font-family: var(--mono); }
+        .model-desc { font-size: 0.78em; color: var(--text2); margin-top: 6px; }
+        .model-badge {
+            display: inline-block;
+            font-size: 0.65em;
+            padding: 2px 7px;
+            border-radius: 5px;
+            margin-top: 6px;
+        }
+        .badge-fast { background: rgba(74,222,128,0.15); color: var(--green); }
+        .badge-smart { background: rgba(129,140,248,0.15); color: #818cf8; }
+        .badge-vision { background: rgba(251,191,36,0.15); color: var(--yellow); }
+        .badge-rec { background: rgba(0,229,255,0.15); color: var(--primary); }
+
+        /* Progress Bar */
+        .progress-wrap {
+            background: rgba(255,255,255,0.05);
+            border-radius: 100px;
+            height: 6px;
+            overflow: hidden;
+            margin-top: 12px;
+        }
+        .progress-bar {
+            height: 100%;
+            border-radius: 100px;
+            background: linear-gradient(90deg, var(--primary), #818cf8);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        .progress-label {
+            font-size: 0.75em;
+            color: var(--text3);
+            margin-top: 6px;
+            font-family: var(--mono);
+        }
+
+        /* Buttons */
+        .btn-primary {
+            width: 100%;
+            padding: 14px;
+            background: linear-gradient(135deg, rgba(0,229,255,0.15), rgba(129,140,248,0.15));
+            border: 1px solid rgba(0,229,255,0.4);
+            border-radius: 12px;
+            color: var(--primary);
+            font-family: var(--font);
+            font-size: 1em;
+            font-weight: 700;
+            letter-spacing: 1px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        .btn-primary:hover { background: rgba(0,229,255,0.2); transform: translateY(-1px); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+        .btn-primary.launch {
+            background: linear-gradient(135deg, rgba(74,222,128,0.15), rgba(0,229,255,0.15));
+            border-color: rgba(74,222,128,0.5);
+            color: var(--green);
+            font-size: 1.1em;
+        }
+
+        /* Phases */
+        .phase { display: none; }
+        .phase.active { display: block; animation: fadeIn 0.4s ease; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(0,229,255,0.3); } 50% { box-shadow: 0 0 0 6px rgba(0,229,255,0); } }
+        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin 1s linear infinite; }
+    </style>
+</head>
+<body>
+
+<div class="setup-container">
+    <!-- Logo -->
+    <div class="logo-area">
+        <!-- Logo image — place your logo at static/logo.png and it will appear here -->
+        <img id="logo-img" class="logo-img" src="/static/logo.png"
+             onload="this.classList.add('loaded'); document.getElementById('logo-icon').style.display='none';"
+             onerror="this.style.display='none';">
+        <div id="logo-icon" class="logo-icon"><i class="fa-solid fa-robot"></i></div>
+        <div class="logo-title">JARVIS</div>
+        <div class="logo-sub">AI PERSONAL ASSISTANT — SETUP</div>
+    </div>
+
+    <!-- Phase 1: Installing Dependencies -->
+    <div class="phase active" id="phase-install">
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-boxes-stacked"></i> התקנת תלויות</div>
+            <div id="step-python" class="step active">
+                <div class="step-icon"><i class="fa-brands fa-python"></i></div>
+                <div class="step-text">
+                    <div class="step-name">Python & pip</div>
+                    <div class="step-desc">בדיקת גרסאות</div>
+                </div>
+                <div class="step-badge">בודק...</div>
+            </div>
+            <div id="step-deps" class="step">
+                <div class="step-icon"><i class="fa-solid fa-puzzle-piece"></i></div>
+                <div class="step-text">
+                    <div class="step-name">ספריות Python</div>
+                    <div class="step-desc">from requirements.txt</div>
+                </div>
+                <div class="step-badge">ממתין</div>
+            </div>
+            <div id="step-ollama" class="step">
+                <div class="step-icon"><i class="fa-solid fa-server"></i></div>
+                <div class="step-text">
+                    <div class="step-name">Ollama</div>
+                    <div class="step-desc">מנוע הרצת המודלים</div>
+                </div>
+                <div class="step-badge">ממתין</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-terminal"></i> לוג התקנה</div>
+            <div class="terminal" id="install-log">
+                <div class="t-line"><span class="t-prefix">jarvis $</span><span>מפעיל בדיקת מערכת...</span></div>
+                <span class="t-cursor"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase 2: Model Selection -->
+    <div class="phase" id="phase-model">
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-brain"></i> בחר מודל AI</div>
+            <p style="font-size:0.82em; color:var(--text2); margin-bottom:14px;">
+                המודל הוא ה"מוח" של ג'ארביס. גדול יותר = חכם יותר, אבל דורש יותר זיכרון RAM.
+            </p>
+            <div class="model-grid" id="model-grid">
+                <div class="model-card" data-model="gemma3:1b" onclick="selectModel(this)">
+                    <div class="model-name">Gemma 3 1B</div>
+                    <div class="model-size">~800MB RAM</div>
+                    <div class="model-desc">מהיר מאוד, מתאים למחשבים חלשים</div>
+                    <span class="model-badge badge-fast">⚡ מהיר</span>
+                </div>
+                <div class="model-card selected" data-model="gemma4:e4b" onclick="selectModel(this)">
+                    <div class="model-name">Gemma 4 4B</div>
+                    <div class="model-size">~3.5GB RAM</div>
+                    <div class="model-desc">איזון מושלם בין מהירות לאיכות</div>
+                    <span class="model-badge badge-rec">★ מומלץ</span>
+                </div>
+                <div class="model-card" data-model="gemma4:12b" onclick="selectModel(this)">
+                    <div class="model-name">Gemma 4 12B</div>
+                    <div class="model-size">~8GB RAM</div>
+                    <div class="model-desc">חכם ומדויק, לתשובות מורכבות</div>
+                    <span class="model-badge badge-smart">🧠 חכם</span>
+                </div>
+                <div class="model-card" data-model="llava:7b" onclick="selectModel(this)">
+                    <div class="model-name">LLaVA 7B</div>
+                    <div class="model-size">~5GB RAM</div>
+                    <div class="model-desc">תומך בניתוח תמונות (Vision)</div>
+                    <span class="model-badge badge-vision">👁 Vision</span>
+                </div>
+            </div>
+        </div>
+        <div id="selected-info" style="text-align:center; color:var(--text3); font-size:0.8em; margin-bottom:12px; font-family:var(--mono);">
+            מודל נבחר: <span id="selected-name" style="color:var(--primary);">gemma4:e4b</span>
+        </div>
+        <button class="btn-primary" onclick="startDownload()">
+            <i class="fa-solid fa-download"></i> הורד והתקן מודל
+        </button>
+    </div>
+
+    <!-- Phase 3: Model Download -->
+    <div class="phase" id="phase-download">
+        <div class="card">
+            <div class="card-title"><i class="fa-solid fa-download"></i> מוריד מודל</div>
+            <div class="step active" id="dl-step">
+                <div class="step-icon"><i class="fa-solid fa-cloud-arrow-down spin"></i></div>
+                <div class="step-text">
+                    <div class="step-name" id="dl-model-name">gemma4:e4b</div>
+                    <div class="step-desc">מוריד מ-Ollama Hub...</div>
+                </div>
+                <div class="step-badge" id="dl-percent">0%</div>
+            </div>
+            <div class="progress-wrap">
+                <div class="progress-bar" id="dl-progress"></div>
+            </div>
+            <div class="progress-label" id="dl-label">מאתחל...</div>
+            <div class="terminal" id="dl-log" style="margin-top:12px; max-height:150px;">
+                <div class="t-line"><span class="t-prefix">ollama $</span><span id="dl-log-text">pull <span id="dl-m2">gemma4:e4b</span>...</span></div>
+                <span class="t-cursor"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase 4: Done! -->
+    <div class="phase" id="phase-done">
+        <div class="card" style="text-align:center; padding:40px 24px;">
+            <div style="font-size:3em; margin-bottom:16px;">✅</div>
+            <div style="font-size:1.4em; font-weight:700; color:var(--green); margin-bottom:8px;">הכל מוכן!</div>
+            <div style="font-size:0.85em; color:var(--text2); margin-bottom:24px;">
+                ג'ארביס מותקן ומוכן לשירותך, אדוני.
+            </div>
+            <button class="btn-primary launch" onclick="launchJarvis()">
+                <i class="fa-solid fa-rocket"></i> הפעל את ג'ארביס
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const PHASES = ['phase-install','phase-model','phase-download','phase-done'];
+    let selectedModel = 'gemma4:e4b';
+    
+    function showPhase(id) {
+        PHASES.forEach(p => document.getElementById(p).classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+    }
+    
+    function selectModel(el) {
+        document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedModel = el.dataset.model;
+        document.getElementById('selected-name').textContent = selectedModel;
+    }
+    
+    function setStep(id, state, badge) {
+        const el = document.getElementById(id);
+        el.className = 'step ' + state;
+        const b = el.querySelector('.step-badge');
+        if (b) b.textContent = badge;
+    }
+    
+    function addLog(id, text, cls='') {
+        const log = document.getElementById(id);
+        const cursor = log.querySelector('.t-cursor');
+        const line = document.createElement('div');
+        line.className = 't-line';
+        line.innerHTML = `<span class="t-prefix">jarvis $</span><span class="${cls}">${text}</span>`;
+        log.insertBefore(line, cursor);
+        log.scrollTop = log.scrollHeight;
+    }
+    
+    async function runInstall() {
+        // Poll /setup/status for real status updates
+        try {
+            const resp = await fetch('/setup/install', { method: 'POST' });
+            const reader = resp.body.getReader();
+            const dec = new TextDecoder();
+            
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const text = dec.decode(value, { stream: true });
+                const lines = text.split('\n').filter(l => l.startsWith('data: '));
+                for (const line of lines) {
+                    const d = JSON.parse(line.slice(6));
+                    handleInstallEvent(d);
+                }
+            }
+        } catch(e) {
+            addLog('install-log', 'שגיאה: ' + e.message, 't-err');
+        }
+    }
+    
+    function handleInstallEvent(d) {
+        if (d.type === 'step') {
+            setStep(d.step, d.state, d.badge);
+        } else if (d.type === 'log') {
+            addLog('install-log', d.text, d.cls || '');
+        } else if (d.type === 'phase') {
+            showPhase(d.phase);
+        }
+    }
+    
+    async function startDownload() {
+        showPhase('phase-download');
+        document.getElementById('dl-model-name').textContent = selectedModel;
+        document.getElementById('dl-m2').textContent = selectedModel;
+        
+        try {
+            const resp = await fetch('/setup/pull-model', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ model: selectedModel })
+            });
+            const reader = resp.body.getReader();
+            const dec = new TextDecoder();
+            
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+                const text = dec.decode(value, { stream: true });
+                const lines = text.split('\n').filter(l => l.startsWith('data: '));
+                for (const line of lines) {
+                    try {
+                        const d = JSON.parse(line.slice(6));
+                        if (d.type === 'progress') {
+                            const pct = Math.round(d.percent);
+                            document.getElementById('dl-percent').textContent = pct + '%';
+                            document.getElementById('dl-progress').style.width = pct + '%';
+                            document.getElementById('dl-label').textContent = d.label || '';
+                        } else if (d.type === 'done') {
+                            showPhase('phase-done');
+                        } else if (d.type === 'error') {
+                            document.getElementById('dl-label').textContent = '❌ ' + d.msg;
+                        }
+                    } catch {}
+                }
+            }
+        } catch(e) {
+            document.getElementById('dl-label').textContent = 'שגיאה: ' + e.message;
+        }
+    }
+    
+    function launchJarvis() {
+        fetch('/setup/complete', { method: 'POST' }).then(() => {
+            window.location.href = '/';
+        });
+    }
+    
+    // Start install on load
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(runInstall, 600);
+    });
+</script>
+</body>
+</html>
