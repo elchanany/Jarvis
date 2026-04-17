@@ -16,7 +16,6 @@ build/
 venv/
 .venv/
 env/
-.env/
 
 # Environment variables (contains API keys!)
 .env
@@ -25,6 +24,8 @@ env/
 .vscode/
 .idea/
 *.swp
+*.sln
+*.suo
 
 # Models & Large Binary Files
 models/
@@ -37,7 +38,6 @@ model_cache/
 *.pth
 *.ot
 *.blob
-*.xml
 
 # Database & User Data (personal)
 jarvis_chats.db
@@ -47,6 +47,7 @@ user_data.json
 user_profile.json
 known_devices.json
 jarvis_session.session
+jarvis_config.json
 
 # Uploads & Sounds (user generated)
 uploads/
@@ -60,6 +61,12 @@ test_raw_chunks.txt
 
 # Cache
 .cache/
+.cache
+
+# Setup artifacts
+OllamaSetup.exe
+.setup_complete
+create_shortcut.vbs
 
 # OS
 Thumbs.db

@@ -1,45 +1,73 @@
 # 🤖 Jarvis — AI Personal Assistant
 
-A **local AI personal assistant** that runs entirely on your machine.  
-No cloud, no subscriptions. Powered by [Ollama](https://ollama.com).
+A **powerful, locally-hosted AI personal assistant**.  
+No cloud, no subscriptions, complete privacy. Powered by [Ollama](https://ollama.com) and Google's Gemma 2 models.
+
+<div align="center">
+  <img src="static/logo.png" alt="Jarvis Logo" width="150" />
+</div>
 
 ---
 
 ## ✨ Features
 
-- 🧠 **Local AI** — runs on your GPU/CPU via Ollama
-- 🌐 **Web + Deep Research** — real-time prices, news, and search
-- 📺 **Telegram News Briefing** — reads your subscribed channels
-- 🎵 **System Control** — Spotify, volume, brightness, apps
-- 🖥️ **Computer Vision** — screenshot analysis and agentic control
-- 💬 **Markdown Rendering** — bold, tables, code blocks, citations
-- 🔧 **First-Run Setup Wizard** — installs everything automatically
+- 🧠 **100% Local AI** — Runs directly on your CPU/GPU. Complete privacy.
+- 🛠️ **Smart Hardware Detection** — Automatically analyzes your PC's RAM, CPU, and GPU capabilities to recommend the optimal AI model for your system.
+- ⚡ **One-Click Setup Wizard** — A sleek, automated installation process. No terminal needed!
+- 🌐 **Deep Research & Web Search** — Real-time abilities to browse the web and pull information.
+- 🖥️ **Computer Vision & Control** — Can analyze your screen and control basic desktop applications natively.
+- 📰 **Telegram News Briefing** — Connects to your Telegram account to read and summarize your subscribed channels.
+- 💬 **Rich Chat Interface** — Beautiful, native desktop UI with markdown, code logic, and responsive design.
 
 ---
 
-## 🚀 Quick Start
+## ⚡ Quick Start: 1-Click Install
 
-### 1. Clone the repo
+We built the installation process to require **zero technical knowledge**. 
+
+### 1. Download the Project
+Clone the repository, or download it as a ZIP file and extract it to a folder on your computer.
 ```bash
-git clone https://github.com/YOUR_USERNAME/jarvis.git
-cd jarvis
+git clone https://github.com/elchanany/Jarvis.git
+cd Jarvis
 ```
 
-### 2. Run the launcher
-**Windows:**
-```
-start.bat
-```
+### 2. Run the Installer
+Double-click on the installation file:
+> **`Install_Jarvis.bat`**
 
-The launcher will automatically:
-- Create a Python virtual environment
-- Install all dependencies
-- Launch the setup wizard (first run only)
-- Open Jarvis as a **native desktop window**
+### What happens behind the scenes?
+1. **Python Check:** Ensures you have Python installed. If not, takes you to the official download page.
+2. **Environment Setup:** Creates an isolated environment so it doesn't conflict with your PC.
+3. **Hardware Scan:** Detects your RAM and GPU to offer you the best AI model.
+4. **Ollama Installation (if missing):** Downloads the optimal AI model directly from Ollama Hub.
+5. **Desktop Shortcut:** When finished, creates a sleek `Jarvis AI` icon right on your desktop!
 
 ---
 
-## 🛠️ Manual Setup
+## 📁 Repository Structure
+
+```
+Jarvis/
+├── app.py              # Main Flask Backend / API
+├── Jarvis.pyw          # Desktop Window Launcher (pywebview)
+├── Install_Jarvis.bat  # ONE-CLICK INSTALLER 🛠️ 
+├── run_jarvis.bat      # Runs the app silently without a terminal
+├── gemma_brain.py      # AI model interface logic (Ollama streaming)
+├── templates/
+│   ├── index.html      # Main Chat UI
+│   └── setup.html      # Smart Setup Wizard UI
+├── static/
+│   ├── style.css       # UI Styles and Animations
+│   └── logo.png        # System Logo
+└── (Other python plugins and AI logic files)
+```
+
+---
+
+## 🔧 Manual Setup (For Developers)
+
+If you prefer to set up manually or contribute to the project:
 
 ```bash
 # Create venv
@@ -49,57 +77,9 @@ venv\Scripts\activate
 # Install dependencies
 pip install -r requirements.txt
 
-# Install Ollama: https://ollama.com
-
 # Run
-python app.py
+python Jarvis.pyw
 ```
-
----
-
-## 📁 Project Structure
-
-```
-jarvis/
-├── app.py              # Flask backend
-├── gemma_brain.py      # AI model interface (Ollama)
-├── tools_registry.py   # All available tools
-├── templates/
-│   ├── index.html      # Main chat UI
-│   └── setup.html      # First-run setup wizard
-├── static/
-│   ├── app.js          # Frontend logic
-│   ├── style.css       # UI styles
-│   └── logo.png        # ← Place your logo here
-├── launcher.py         # Native window launcher
-├── start.bat           # Windows launcher script
-└── requirements.txt    # Python dependencies
-```
-
----
-
-## 🖼️ Logo
-
-Place your logo at `static/logo.png` — it will automatically appear in the setup wizard and (optionally) the taskbar.
-
----
-
-## 🔧 Configuration
-
-Edit `jarvis_config.json` to customize the assistant persona and behavior.
-
----
-
-## 📦 Tech Stack
-
-- **Backend:** Python / Flask
-- **AI Engine:** Ollama (local models)
-- **Frontend:** Vanilla JS + CSS
-- **Markdown:** marked.js
-- **Native Window:** pywebview
-
----
 
 ## 📄 License
-
-MIT License — free to use and modify.
+MIT License. Free to use, modify, and distribute.

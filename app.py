@@ -8,10 +8,70 @@ import time
 import threading
 import queue
 import requests as http_requests
+import psutil
+from requests.adapters import HTTPAdapter
+ollama_session = http_requests.Session()
+# Configure pooling
+adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10)
+ollama_session.mount('http://', adapter)
 from dotenv import load_dotenv
 
 # Load `.env` into environment variables
 load_dotenv()
+
+import sys
+from collections import deque
+
+# Noise patterns to filter from in-app terminal (still go to real stdout)
+_TERMINAL_NOISE = (
+    '"GET /api/load-status',
+    '"GET /api/loaded-models',
+    '"GET /api/ollama-status',
+    '"GET /api/models',
+    '"GET /api/logs/poll',
+    '"GET /static/',
+    '"GET /api/conversations',
+    '"GET /favicon',
+    '304 -',
+    '200 -',
+)
+
+class LogBuffer:
+    """Captures stdout/stderr into a ring buffer for the in-app terminal overlay.
+    Filters out repetitive API polling noise to keep the terminal readable."""
+    def __init__(self):
+        self.q = deque(maxlen=500)
+        self._orig_stdout = sys.__stdout__
+        self.encoding = 'utf-8'
+        self.q.append("[JARVIS LOG CORE] Terminal attached successfully.\n")
+    def write(self, text):
+        if text:
+            # Normalize to str (Flask/click sometimes sends bytes)
+            if isinstance(text, bytes):
+                try:
+                    text = text.decode('utf-8', errors='replace')
+                except Exception:
+                    text = str(text)
+            # Always write to real stdout
+            try:
+                if self._orig_stdout:
+                    self._orig_stdout.write(text)
+            except Exception:
+                pass
+            # Only add to UI buffer if not noise
+            text_str = str(text)
+            if not any(noise in text_str for noise in _TERMINAL_NOISE):
+                self.q.append(text_str)
+    def flush(self):
+        try:
+            if self._orig_stdout:
+                self._orig_stdout.flush()
+        except Exception:
+            pass
+
+log_buffer = LogBuffer()
+sys.stdout = log_buffer
+sys.stderr = log_buffer
 
 from gemma_brain import run_gemma_chat_stream, parse_gemma_response, prompt_config, generate_system_prompt
 from tools_registry import ALL_TOOLS
@@ -57,7 +117,7 @@ import subprocess
 
 def start_ollama_if_needed():
     try:
-        http_requests.get(OLLAMA_BASE + "/", timeout=1)
+        ollama_session.get(OLLAMA_BASE + "/", timeout=1)
     except Exception:
         print("\n[JARVIS] Ollama is not running. Starting Ollama automatically...")
         try:
@@ -73,7 +133,7 @@ def start_ollama_if_needed():
             for _ in range(8):
                 try:
                     time.sleep(1)
-                    http_requests.get(OLLAMA_BASE + "/", timeout=1)
+                    ollama_session.get(OLLAMA_BASE + "/", timeout=1)
                     print("[JARVIS] Ollama started successfully!\n")
                     return
                 except Exception:
@@ -86,19 +146,50 @@ threading.Thread(target=start_ollama_if_needed, daemon=True).start()
 # ═══════════════════════════════════════════
 #  KEEP-ALIVE PING — prevent model unloading
 # ═══════════════════════════════════════════
+_last_model_load_time = 0  # timestamp of last model load/chat
+
+def resource_watchdog():
+    """Monitor system RAM. Only unload if CRITICALLY low (>93%) AND model has been idle for 5+ minutes.
+    Intel Arc shares system RAM, so 75-90% usage is NORMAL with a loaded model."""
+    import sys
+    while True:
+        time.sleep(60)  # check every 60s instead of 30s
+        try:
+            # Don't unload during generation
+            if getattr(sys.modules[__name__], 'is_generating', False):
+                continue
+            
+            # Don't unload within 5 minutes of last load/chat
+            if time.time() - _last_model_load_time < 300:
+                continue
+                
+            mem_usage = psutil.virtual_memory().percent
+            if mem_usage > 93.0:  # Only at CRITICAL pressure (was 85%)
+                r = ollama_session.get(f"{OLLAMA_BASE}/api/ps", timeout=5)
+                if r.status_code == 200:
+                    loaded = r.json().get("models", [])
+                    if loaded:
+                        print(f"\n[⚠️ WATCHDOG] Critical Memory Pressure ({mem_usage}% RAM). Unloading model.")
+                        for m in loaded:
+                            ollama_session.post(f"{OLLAMA_BASE}/api/generate", json={
+                                "model": m["name"], "keep_alive": 0
+                            }, timeout=10)
+        except Exception:
+            pass
+
+# Start the watchdog
+threading.Thread(target=resource_watchdog, daemon=True).start()
+
 def keepalive_ping():
     """Ping Ollama every 4 minutes with a minimal request to keep the model loaded in VRAM."""
     import time as _time
     _time.sleep(30)  # wait for initial startup
     while True:
         try:
-            # Just ask the model to stay loaded with keep_alive
-            http_requests.post(f"{OLLAMA_BASE}/api/generate", json={
+            # Just ask the model to stay loaded with keep_alive (without changing context/options to avoid reloading)
+            ollama_session.post(f"{OLLAMA_BASE}/api/generate", json={
                 "model": "gemma4:e4b",
-                "prompt": "",
-                "stream": False,
-                "keep_alive": "30m",
-                "options": {"num_predict": 1}
+                "keep_alive": "30m"
             }, timeout=10)
         except:
             pass
@@ -107,6 +198,16 @@ def keepalive_ping():
 threading.Thread(target=keepalive_ping, daemon=True).start()
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
+# Force no caching — pywebview's Edge backend caches aggressively
+@app.after_request
+def add_no_cache_headers(response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 # Current active conversation
 active_conv = {"id": None, "history": []}
@@ -142,7 +243,7 @@ def execute_parsed_tool(command_dict):
 @app.route("/api/ollama-status")
 def ollama_status():
     try:
-        http_requests.get(f"{OLLAMA_BASE}/", timeout=3)
+        ollama_session.get(f"{OLLAMA_BASE}/", timeout=3)
         return jsonify({"online": True})
     except:
         return jsonify({"online": False})
@@ -150,7 +251,7 @@ def ollama_status():
 @app.route("/api/models")
 def list_models_route():
     try:
-        r = http_requests.get(f"{OLLAMA_BASE}/api/tags", timeout=5)
+        r = ollama_session.get(f"{OLLAMA_BASE}/api/tags", timeout=5)
         if r.status_code == 200:
             models = []
             for m in r.json().get("models", []):
@@ -172,7 +273,7 @@ def list_models_route():
 @app.route("/api/loaded-models")
 def loaded_models():
     try:
-        r = http_requests.get(f"{OLLAMA_BASE}/api/ps", timeout=5)
+        r = ollama_session.get(f"{OLLAMA_BASE}/api/ps", timeout=5)
         if r.status_code == 200:
             loaded = []
             for m in r.json().get("models", []):
@@ -203,30 +304,44 @@ model_load_state = {
 }
 
 def _bg_load_model(model_name):
-    """Background worker for loading a model — lightweight, streaming."""
-    global model_load_state
+    """Background worker for loading a model — lightweight preload.
+    
+    Uses minimal num_ctx (2048) and num_predict (1) to load weights into
+    VRAM without triggering 'memory layout cannot be allocated' errors
+    on Intel Arc / Vulkan backends.
+    """
+    global model_load_state, _last_model_load_time
+    _last_model_load_time = time.time()
     print(f"\n[⏳ LOAD] Starting background load of {model_name}...")
     try:
-        # Lightweight load: just load model weights to VRAM, no heavy prompt
-        r = http_requests.post(f"{OLLAMA_BASE}/api/generate", json={
+        # Minimal preload: tiny context + single token prediction
+        # This loads the model weights without allocating a huge KV cache
+        r = ollama_session.post(f"{OLLAMA_BASE}/api/generate", json={
             "model": model_name,
-            "prompt": "hi",
-            "stream": True,
-            "options": {"num_predict": 1},
-            "keep_alive": "30m"
-        }, timeout=(10, 300), stream=True)
-        
-        # Consume stream to keep connection alive during loading
-        for line in r.iter_lines():
-            pass
+            "prompt": "",
+            "keep_alive": "30m",
+            "options": {
+                "num_ctx": 2048,
+                "num_predict": 1
+            }
+        }, timeout=(10, 300))
         
         elapsed = round(time.time() - model_load_state["started_at"], 1)
         if r.status_code == 200:
+            _last_model_load_time = time.time()
             print(f"[✅ LOAD] {model_name} weights loaded in {elapsed}s")
             model_load_state.update({"completed": True, "success": True, "load_time": elapsed, "error": None})
         else:
-            print(f"[❌ LOAD] {model_name} failed: status {r.status_code}")
-            model_load_state.update({"completed": True, "success": False, "error": f"HTTP {r.status_code}", "load_time": elapsed})
+            # Fallback: try show-only (doesn't allocate KV cache at all)
+            print(f"[⚠️ LOAD] generate failed ({r.status_code}), trying show fallback...")
+            r2 = ollama_session.post(f"{OLLAMA_BASE}/api/show", json={"model": model_name}, timeout=30)
+            elapsed = round(time.time() - model_load_state["started_at"], 1)
+            if r2.status_code == 200:
+                print(f"[✅ LOAD] {model_name} verified via show in {elapsed}s (will load on first chat)")
+                model_load_state.update({"completed": True, "success": True, "load_time": elapsed, "error": None})
+            else:
+                print(f"[❌ LOAD] {model_name} failed: status {r.status_code}")
+                model_load_state.update({"completed": True, "success": False, "error": f"HTTP {r.status_code}: memory layout error — model will load on first chat", "load_time": elapsed})
     except Exception as e:
         elapsed = round(time.time() - (model_load_state.get("started_at") or time.time()), 1)
         print(f"[❌ LOAD] {model_name} error after {elapsed}s: {e}")
@@ -236,8 +351,10 @@ def _bg_unload_model(model_name):
     """Background worker for unloading a model."""
     global model_load_state
     try:
-        r = http_requests.post(f"{OLLAMA_BASE}/api/generate", json={
-            "model": model_name, "prompt": "", "stream": False, "keep_alive": 0
+        r = ollama_session.post(f"{OLLAMA_BASE}/api/generate", json={
+            "model": model_name, 
+            "prompt": "",
+            "keep_alive": 0
         }, timeout=30)
         elapsed = round(time.time() - model_load_state["started_at"], 1)
         model_load_state.update({"completed": True, "success": r.status_code == 200, "load_time": elapsed, "error": None})
@@ -247,27 +364,35 @@ def _bg_unload_model(model_name):
 
 @app.route("/api/load-model", methods=["POST"])
 def load_model():
-    global model_load_state
-    model = request.json.get("model", "gemma4:e4b")
-    
-    # If already loading, return the current state
-    if model_load_state["active"] and not model_load_state["completed"]:
-        elapsed = round(time.time() - model_load_state["started_at"], 1)
-        return jsonify({"already_running": True, "model": model_load_state["model"], "elapsed": elapsed})
-    
-    # Start background load
-    model_load_state = {
-        "active": True, "action": "load", "model": model,
-        "started_at": time.time(), "completed": False,
-        "success": None, "error": None, "load_time": None,
-    }
-    threading.Thread(target=_bg_load_model, args=(model,), daemon=True).start()
-    return jsonify({"started": True, "model": model})
+    try:
+        global model_load_state
+        req = request.get_json(silent=True) or {}
+        model = req.get("model", "gemma4:e4b")
+        
+        # If already loading, return the current state
+        if model_load_state["active"] and not model_load_state["completed"]:
+            elapsed = round(time.time() - (model_load_state["started_at"] or time.time()), 1)
+            return jsonify({"already_running": True, "model": model_load_state["model"], "elapsed": elapsed})
+        
+        # Start background load
+        model_load_state = {
+            "active": True, "action": "load", "model": model,
+            "started_at": time.time(), "completed": False,
+            "success": None, "error": None, "load_time": None,
+        }
+        threading.Thread(target=_bg_load_model, args=(model,), daemon=True).start()
+        return jsonify({"started": True, "model": model})
+    except Exception as e:
+        import traceback
+        err = traceback.format_exc()
+        print(f"[API ERROR] load-model crashed: {err}")
+        return jsonify({"started": False, "error": str(e)}), 500
 
 @app.route("/api/unload-model", methods=["POST"])
 def unload_model():
     global model_load_state
-    model = request.json.get("model", "gemma4:e4b")
+    req = request.json or {}
+    model = req.get("model", "gemma4:e4b")
     
     model_load_state = {
         "active": True, "action": "unload", "model": model,
@@ -285,8 +410,8 @@ def load_status():
     
     elapsed = round(time.time() - model_load_state["started_at"], 1) if model_load_state["started_at"] else 0
     
-    # Safety timeout: if 150s pass without completion, force-fail
-    if not model_load_state["completed"] and elapsed > 150:
+    # Safety timeout: 600s (Vulkan model loading can take 5+ minutes)
+    if not model_load_state["completed"] and elapsed > 600:
         model_load_state.update({
             "completed": True, "success": False,
             "error": f"Timeout after {elapsed}s — Ollama might be stuck", "load_time": elapsed
@@ -305,9 +430,33 @@ def load_status():
     })
 
 # ═══════════════════════════════════════════
-#  ABORT
+#  ABORT & STATE
 # ═══════════════════════════════════════════
+@app.route("/api/terminal/input", methods=["POST"])
+def terminal_input():
+    req = request.json or {}
+    cmd = req.get("command", "").strip()
+    if not cmd:
+        return jsonify({"success": False})
+    
+    print(f"\n> {cmd}")
+    
+    def run_cmd():
+        try:
+            # We use shell=True so things like 'dir' or 'echo' work natively
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, encoding='utf-8', errors='replace')
+            for line in iter(proc.stdout.readline, ''):
+                sys.stdout.write(line)
+            proc.stdout.close()
+            proc.wait()
+        except Exception as e:
+            print(f"[CMD ERROR] {e}")
+            
+    threading.Thread(target=run_cmd, daemon=True).start()
+    return jsonify({"success": True})
 active_generation = {"abort": threading.Event(), "thread": None}
+is_generating = False
+is_generating = False
 
 @app.route("/api/abort", methods=["POST"])
 def abort_generation():
@@ -428,10 +577,13 @@ def api_delete_conversation(cid):
 
 @app.route("/api/transcribe_and_save", methods=["POST"])
 def transcribe_and_save():
-    """Receive Base64 audio blob, save to disk for WhatsApp-like UI, AND transcribe with native Model."""
+    """Receive Base64 audio blob, save to disk for WhatsApp-like UI, AND transcribe.
+    Supports two STT modes: 'whisper' (local Whisper-HE) or 'gemma' (Gemma4 native audio).
+    """
     data = request.json
     audio_b64 = data.get("audio_b64", "")
-    model = data.get("model", "gemma4:e2b")
+    model = data.get("model", "gemma4:e4b")
+    stt_mode = data.get("stt_mode", "whisper")  # 'whisper' or 'gemma'
     
     if not audio_b64:
         return jsonify({"error": "No audio data provided"}), 400
@@ -446,68 +598,174 @@ def transcribe_and_save():
             f.write(audio_data)
             
         audio_url = f"/audio/{filename}"
+        print(f"[AUDIO] Saved {filename} ({len(audio_data)//1024}KB) — mode: {stt_mode}")
         
-        # 2. Ask Model to transcribe
-        # Note: some Ollama audio-vision models mapped audio to the "images" field to bypass API schema limits. 
-        # We try "images" first, then fallback to "audio".
-        payload = {
-            "model": model,
-            "messages": [{
-                "role": "user",
-                "content": "Transcribe this audio recording exactly as spoken in Hebrew. Print ONLY the text. No translations, no extra words.",
-                "images": [audio_b64]
-            }],
-            "stream": False,
-            "options": {"temperature": 0.0},
-            "keep_alive": "1h"
-        }
+        # 2. Transcribe
+        transcript = ""
         
-        r = http_requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=120)
+        if stt_mode == "whisper":
+            # Use local Whisper-HE (OpenVINO) — 100% offline!
+            try:
+                import stt_engine
+                transcript = stt_engine.transcribe_audio_b64(audio_b64, language="he")
+            except Exception as e:
+                print(f"[STT] Whisper failed: {e}, falling back to Gemma4")
+                stt_mode = "gemma"  # Fallback
         
-        # If model failed with images, try 'audio' field
-        if r.status_code != 200:
-            del payload["messages"][0]["images"]
-            payload["messages"][0]["audio"] = [audio_b64]
-            r = http_requests.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=120)
-
-        if r.status_code == 200:
-            result = r.json()
-            transcript = result.get("message", {}).get("content", "").strip()
-            # Clean up thinking tags if the model leaked them
-            import re
-            transcript = re.sub(r'<think>.*?</think>', '', transcript, flags=re.DOTALL | re.IGNORECASE).strip()
-            return jsonify({"url": audio_url, "transcript": transcript})
+        if stt_mode == "gemma" or (stt_mode == "whisper" and not transcript):
+            # Use Gemma4 native audio understanding
+            payload = {
+                "model": model,
+                "messages": [{
+                    "role": "user",
+                    "content": "Transcribe this audio recording exactly as spoken. Print ONLY the transcribed text. No translations, no extra words, no explanations.",
+                    "images": [audio_b64]
+                }],
+                "options": {
+                    "temperature": 0.0,
+                    "num_ctx": 4096,
+                    "num_predict": 1024
+                },
+                "keep_alive": "30m"
+            }
+            
+            r = ollama_session.post(f"{OLLAMA_BASE}/api/chat", json=payload, timeout=120)
+            
+            if r.status_code == 200:
+                result = r.json()
+                transcript = result.get("message", {}).get("content", "").strip()
+                import re as _re
+                transcript = _re.sub(r'<think>.*?</think>', '', transcript, flags=_re.DOTALL | _re.IGNORECASE).strip()
+            else:
+                print(f"[AUDIO] Gemma4 returned {r.status_code}")
+        
+        if transcript:
+            print(f"[AUDIO] ✅ Transcript: {transcript[:80]}")
         else:
-            return jsonify({"error": f"Ollama returned {r.status_code}", "url": audio_url, "transcript": ""}), 500
+            print(f"[AUDIO] ⚠️ No transcript produced")
+        
+        return jsonify({"url": audio_url, "transcript": transcript})
             
     except Exception as e:
+        print(f"[AUDIO] ❌ Error: {e}")
         return jsonify({"error": str(e), "url": "", "transcript": ""}), 500
+
+@app.route("/api/stt", methods=["POST"])
+def api_stt():
+    """Quick STT endpoint for voice call mode — local Whisper only, returns text fast."""
+    data = request.json
+    audio_b64 = data.get("audio_b64", "")
+    
+    if not audio_b64:
+        return jsonify({"text": ""}), 400
+    
+    try:
+        import stt_engine
+        text = stt_engine.transcribe_audio_b64(audio_b64, language="he")
+        return jsonify({"text": text})
+    except Exception as e:
+        print(f"[STT API] Error: {e}")
+        return jsonify({"text": "", "error": str(e)}), 500
 
 @app.route("/audio/<path:filename>")
 def serve_audio(filename):
     return send_from_directory(AUDIO_UPLOAD_DIR, filename)
+
+@app.route("/api/logs/poll")
+def poll_logs():
+    """Fallback polling endpoint for terminal logs (when SSE doesn't work in pywebview)."""
+    try:
+        # Safely copy the list before iterating to avoid 'deque mutated during iteration'
+        items = list(log_buffer.q)
+        logs_str = "".join([str(item) for item in items])
+        return jsonify({"logs": logs_str})
+    except Exception as e:
+        return jsonify({"logs": f"Server Error reading logs: {e}"})
 
 # ═══════════════════════════════════════════
 #  FIRST-RUN SETUP DETECTION
 # ═══════════════════════════════════════════
 SETUP_DONE_FILE = os.path.join(PROJECT_DIR, ".setup_complete")
 
+def get_hardware_specs():
+    """Detect hardware and recommend the best model for this machine."""
+    try:
+        import psutil, subprocess
+        ram_gb = round(psutil.virtual_memory().total / (1024**3), 1)
+        
+        gpu_name = "לא ידוע"
+        try:
+            proc = subprocess.run(["wmic", "path", "win32_VideoController", "get", "name"], capture_output=True, text=True, timeout=3)
+            lines = [l.strip() for l in proc.stdout.split('\n') if l.strip() and "Name" not in l]
+            if lines: gpu_name = " + ".join(lines)
+        except: pass
+        
+        cpu_name = "לא ידוע"
+        try:
+            proc = subprocess.run(["wmic", "cpu", "get", "name"], capture_output=True, text=True, timeout=3)
+            lines = [l.strip() for l in proc.stdout.split('\n') if l.strip() and "Name" not in l]
+            if lines: cpu_name = lines[0]
+        except: pass
+        
+        # Smart model recommendation based on RAM
+        if ram_gb >= 24:
+            rec_model = "gemma2:27b"
+            rec_name = "Gemma 2 27B"
+            rec_size = "~16GB"
+            rec_reason = "יש לך מספיק זיכרון למודל החזק ביותר"
+        elif ram_gb >= 12:
+            rec_model = "gemma2:9b"
+            rec_name = "Gemma 2 9B"
+            rec_size = "~5.5GB"
+            rec_reason = "איזון מושלם בין מהירות לאיכות עבור המחשב שלך"
+        else:
+            rec_model = "gemma2:2b"
+            rec_name = "Gemma 2 2B"
+            rec_size = "~1.6GB"
+            rec_reason = "קל ומהיר, מותאם לזיכרון המוגבל שלך"
+        
+        return {
+            "ram": f"{ram_gb}GB",
+            "ram_gb": ram_gb,
+            "gpu": gpu_name,
+            "cpu": cpu_name,
+            "rec_model": rec_model,
+            "rec_name": rec_name,
+            "rec_size": rec_size,
+            "rec_reason": rec_reason,
+        }
+    except:
+        return {
+            "ram": "לא ידוע", "ram_gb": 0, "gpu": "לא ידוע", "cpu": "לא ידוע",
+            "rec_model": "gemma2:9b", "rec_name": "Gemma 2 9B",
+            "rec_size": "~5.5GB", "rec_reason": "ברירת מחדל מומלצת",
+        }
+
 def is_setup_needed():
     """Returns True if first-time setup is required."""
     if os.path.exists(SETUP_DONE_FILE):
         return False
-    # Check if Ollama is running and has at least one model
+    
+    # Check if models exist locally without relying on active API
+    home = os.path.expanduser("~")
+    models_dir = os.path.join(home, ".ollama", "models", "manifests", "registry.ollama.ai", "library")
+    if os.path.exists(models_dir):
+        # User has downloaded some models
+        has_gemma = any('gemma' in d for d in os.listdir(models_dir) if os.path.isdir(os.path.join(models_dir, d)))
+        if has_gemma:
+            return False
+            
     try:
-        r = http_requests.get(OLLAMA_BASE + "/api/tags", timeout=2)
+        r = ollama_session.get(OLLAMA_BASE + "/api/tags", timeout=2)
         models = r.json().get("models", [])
         return len(models) == 0
     except Exception:
         return True
-
 @app.route("/")
 def index():
     if is_setup_needed():
-        return render_template("setup.html")
+        specs = get_hardware_specs()
+        return render_template("setup.html", specs=specs)
     return render_template("index.html")
 
 
@@ -526,23 +784,37 @@ def setup_install():
         yield send({"type":"log","text":f"Python {ver} נמצא ✓","cls":"t-ok"})
         yield send({"type":"step","step":"step-python","state":"done","badge":f"Python {ver}"})
         
-        # Step 2: Install pip deps
-        yield send({"type":"step","step":"step-deps","state":"active","badge":"מתקין..."})
-        yield send({"type":"log","text":"pip install -r requirements.txt"})
-        req_file = os.path.join(PROJECT_DIR, "requirements.txt")
-        proc = subprocess.Popen(
-            [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
-        )
-        for line in proc.stdout:
-            line = line.strip()
-            if line:
-                yield send({"type":"log","text":line,"cls":"t-ok" if "Successfully" in line else ""})
-        proc.wait()
-        if proc.returncode == 0:
+        # Step 2: Install pip deps — check first, install only if needed
+        yield send({"type":"step","step":"step-deps","state":"active","badge":"בודק..."})
+        
+        # Quick check: try importing critical packages
+        deps_ok = True
+        try:
+            import importlib
+            for pkg in ['flask', 'requests', 'psutil', 'langchain_core', 'PIL', 'bs4', 'duckduckgo_search']:
+                importlib.import_module(pkg)
+        except ImportError:
+            deps_ok = False
+        
+        if deps_ok:
+            yield send({"type":"log","text":"כל הספריות כבר מותקנות ✓","cls":"t-ok"})
             yield send({"type":"step","step":"step-deps","state":"done","badge":"מותקן ✓"})
         else:
-            yield send({"type":"step","step":"step-deps","state":"error","badge":"שגיאה ✗"})
+            yield send({"type":"log","text":"מתקין ספריות חסרות..."})
+            req_file = os.path.join(PROJECT_DIR, "requirements.txt")
+            proc = subprocess.Popen(
+                [sys.executable, "-m", "pip", "install", "-r", req_file, "--quiet"],
+                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+            )
+            for line in proc.stdout:
+                line = line.strip()
+                if line and not line.startswith('WARNING'):
+                    yield send({"type":"log","text":line,"cls":"t-ok" if "Successfully" in line else ""})
+            proc.wait()
+            if proc.returncode == 0:
+                yield send({"type":"step","step":"step-deps","state":"done","badge":"מותקן ✓"})
+            else:
+                yield send({"type":"step","step":"step-deps","state":"error","badge":"שגיאה ✗"})
         
         # Step 3: Ollama check
         yield send({"type":"step","step":"step-ollama","state":"active","badge":"בודק..."})
@@ -555,7 +827,7 @@ def setup_install():
             # Download & install Ollama on Windows
             ollama_installer = os.path.join(PROJECT_DIR, "OllamaSetup.exe")
             try:
-                r = http_requests.get("https://ollama.com/download/OllamaSetup.exe", stream=True, timeout=60)
+                r = ollama_session.get("https://ollama.com/download/OllamaSetup.exe", stream=True, timeout=60)
                 with open(ollama_installer, "wb") as f:
                     for chunk in r.iter_content(8192):
                         f.write(chunk)
@@ -584,7 +856,7 @@ def setup_pull_model():
         def send(d):
             return f"data: {json.dumps(d, ensure_ascii=False)}\n\n"
         try:
-            r = http_requests.post(
+            r = ollama_session.post(
                 OLLAMA_BASE + "/api/pull",
                 json={"name": model},
                 stream=True, timeout=600
@@ -619,25 +891,64 @@ def setup_pull_model():
 # ─── Setup: mark complete ───
 @app.route("/setup/complete", methods=["POST"])
 def setup_complete():
+    # Create Desktop Shortcut
+    try:
+        import os
+        desktop = os.path.join(os.environ['USERPROFILE'], 'Desktop')
+        path = os.path.join(desktop, 'Jarvis AI.lnk')
+        target = os.path.join(PROJECT_DIR, 'run_jarvis.bat')
+        icon = os.path.join(PROJECT_DIR, 'static', 'logo.ico')
+        
+        vbs_script = f'''Set oWS = WScript.CreateObject("WScript.Shell")
+sLinkFile = "{path}"
+Set oLink = oWS.CreateShortcut(sLinkFile)
+oLink.TargetPath = "{target}"
+oLink.WorkingDirectory = "{PROJECT_DIR}"
+oLink.IconLocation = "{icon}"
+oLink.Save()'''
+        
+        vbs_path = os.path.join(PROJECT_DIR, 'create_shortcut.vbs')
+        with open(vbs_path, 'w', encoding='utf-8') as f:
+            f.write(vbs_script)
+        import subprocess
+        subprocess.run(['cscript', '//nologo', vbs_path], creationflags=subprocess.CREATE_NO_WINDOW)
+        os.remove(vbs_path)
+    except Exception as e:
+        print(f"Failed to create desktop shortcut: {e}")
+
     with open(SETUP_DONE_FILE, "w") as f:
         f.write("done")
+    return jsonify({"ok": True})
+
+@app.route("/shutdown", methods=["POST"])
+def shutdown():
+    import os, signal
+    print("[SERVER] Shutdown requested. Bye!")
+    os.kill(os.getpid(), signal.SIGTERM)
     return jsonify({"ok": True})
 
 
 @app.route("/chat", methods=["POST"])
 def chat():
+    global active_conv, is_generating, _last_model_load_time
+    is_generating = True
+    _last_model_load_time = time.time()
     data = request.json
     message_text = data.get("message", "")
     images = data.get("images", [])
     model = data.get("model", "").strip()
     conv_id = data.get("conv_id")
     vision_mode = data.get("vision_mode", "vlm")
+    stt_mode = data.get("stt_mode", "browser")
+    tts_mode = data.get("tts_mode", "none")
     engine = data.get("engine", "local")
+
+    os.environ["JARVIS_VISION_MODE"] = vision_mode
 
     # If no model specified and local engine, try to find first loaded model
     if not model and engine == "local":
         try:
-            r = http_requests.get(f"{OLLAMA_BASE}/api/ps", timeout=3)
+            r = ollama_session.get(f"{OLLAMA_BASE}/api/ps", timeout=3)
             if r.status_code == 200:
                 loaded = r.json().get("models", [])
                 if loaded:
@@ -711,12 +1022,26 @@ def chat():
             try:
                 stream_gen = run_cloud_chat_stream(list(chat_history), model, vision_mode) if engine == "cloud" else run_gemma_chat_stream(list(chat_history), model, vision_mode)
                 
+                sentence_buf = ""
+                in_think_block = False
+
+                def _gen_tts(txt):
+                    import tts_engine
+                    audio_b64 = tts_engine.generate_speech_b64(txt, tts_mode)
+                    if audio_b64:
+                        q.put({"type": "tts_audio", "audio_b64": audio_b64})
+
                 for chunk in stream_gen:
                     if abort_evt.is_set():
                         q.put({"type": "error", "content": "ההפקה הופסקה"})
                         q.put(None)
                         return
+                    
                     if chunk.get("type") == "done":
+                        if tts_mode != "none" and sentence_buf.strip():
+                            threading.Thread(target=_gen_tts, args=(sentence_buf.strip(),), daemon=True).start()
+                            sentence_buf = ""
+                            
                         full_raw = chunk["raw"]
                         cmds = chunk["commands"]
                         if cmds:
@@ -724,6 +1049,21 @@ def chat():
                         q.put(chunk)
                     else:
                         q.put(chunk)
+                        
+                        if chunk.get("type") == "content" and tts_mode != "none":
+                            c_text = chunk.get("content", "")
+                            
+                            # Extremely simple tag heuristic to avoid reading <think>
+                            if "<think>" in c_text: in_think_block = True
+                            if "</think>" in c_text: in_think_block = False
+                            
+                            if not in_think_block and "<" not in c_text and ">" not in c_text:
+                                sentence_buf += c_text
+                                if any(x in c_text for x in [".", "!", "?", "\n", ":"]):
+                                    txt_to_speak = sentence_buf.strip()
+                                    sentence_buf = ""
+                                    if txt_to_speak and len(txt_to_speak) > 2:
+                                        threading.Thread(target=_gen_tts, args=(txt_to_speak,), daemon=True).start()
             except Exception as e:
                 q.put({"type": "error", "content": str(e)})
                 q.put(None)
@@ -736,43 +1076,57 @@ def chat():
 
             if cmds:
                 extracted_b64 = None
+                from concurrent.futures import ThreadPoolExecutor, as_completed
                 
+                # Extract and stream narrations first to maintain UI order
                 for cmd in cmds:
-                    # Extract and send narration before executing the tool
                     narration = cmd.pop("narration", None)
                     if narration:
                         q.put({"type": "narration", "content": narration})
+
+                results_str_parts = []
+                
+                # Execute tools in parallel
+                with ThreadPoolExecutor(max_workers=5) as executor:
+                    future_to_cmd = {executor.submit(execute_parsed_tool, cmd): cmd for cmd in cmds}
                     
-                    try:
-                        result = execute_parsed_tool(cmd)
-                    except Exception as e:
-                        result = f"Tool error: {e}"
-                        
-                    # Handle screenshot vision injection
-                    if cmd.get("tool") == "computer_action" and cmd.get("args", {}).get("action") == "screenshot":
+                    for fut in as_completed(future_to_cmd):
+                        cmd = future_to_cmd[fut]
                         try:
-                            # if it's a JSON string with the base64, parse it
-                            import json
-                            res_json = json.loads(result)
-                            if "image_b64" in res_json:
-                                extracted_b64 = res_json.pop("image_b64")
-                                result = json.dumps(res_json, ensure_ascii=False)
-                                # Stream visual preview to UI
-                                q.put({"type": "agent_vision", "image": extracted_b64, "tool": "screenshot"})
-                        except:
-                            pass
+                            result = fut.result()
+                        except Exception as e:
+                            result = f"Tool error: {e}"
                             
-                    q.put({"type": "action_result", "tool": cmd.get("tool"), "result": str(result)})
+                        # Handle screenshot vision injection
+                        if cmd.get("tool") == "computer_action" and cmd.get("args", {}).get("action") == "screenshot":
+                            try:
+                                import json
+                                res_json = json.loads(result)
+                                if "image_b64" in res_json:
+                                    extracted_b64 = res_json.pop("image_b64")
+                                    result = json.dumps(res_json, ensure_ascii=False)
+                                    q.put({"type": "agent_vision", "image": extracted_b64, "tool": "screenshot"})
+                            except:
+                                pass
+                                
+                        q.put({"type": "action_result", "tool": cmd.get("tool"), "result": str(result)})
 
-                # Trim tool result
-                result_str = str(result)
-                if len(result_str) > 2500:
-                    result_str = result_str[:2500] + "\n... [נקצר - יש עוד תוצאות]"
+                        # Trim individual tool result
+                        res_str = str(result)
+                        if len(res_str) > 2500:
+                            res_str = res_str[:2500] + "\n... [נקצר - יש עוד תוצאות]"
+                        
+                        results_str_parts.append(f"[TOOL RESULT: {cmd.get('tool')}]\n{res_str}")
 
-                tool_name_used = cmds[-1].get('tool', '')
+                # Combine all results
+                combined_results = "\n\n".join(results_str_parts)
+                if len(combined_results) > 6000:
+                    combined_results = combined_results[:6000] + "\n... [נקצר - יש עוד תוצאות]"
                 
                 # For tools that return rich content, ask for detailed structured summary
-                if tool_name_used in ('read_telegram_news', 'search_web', 'deep_research', 'read_webpage', 'read_url'):
+                needs_rich_summary = any(c.get('tool') in ('read_telegram_news', 'search_web', 'deep_research', 'read_webpage', 'read_url') for c in cmds)
+                
+                if needs_rich_summary:
                     post_instruction = (
                         "---\n"
                         "סכם את המידע לעיל בעברית, בצורה מובנית:\n"
@@ -790,8 +1144,8 @@ def chat():
                     )
                 
                 tool_result_content = (
-                    f"[TOOL RESULT: {tool_name_used}]\n{result_str}\n\n"
-                    + post_instruction
+                    f"{combined_results}\n\n"
+                    f"{post_instruction}"
                 )
                 tool_reply = {"role": "user", "content": tool_result_content}
                 if extracted_b64:
@@ -809,6 +1163,8 @@ def chat():
             save_history.append(sm)
         save_messages(conv_id, save_history)
         
+        global is_generating
+        is_generating = False
         q.put(None)
 
     t = threading.Thread(target=run_model, daemon=True)
@@ -816,22 +1172,43 @@ def chat():
     t.start()
 
     def generate():
-        # Send conv_id to client
-        yield f"data: {json.dumps({'type': 'conv_id', 'id': conv_id})}\n\n"
-        while True:
-            try:
-                chunk = q.get(timeout=2)
-                if chunk is None:
-                    break
-                yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
-            except queue.Empty:
-                if abort_evt.is_set():
-                    break
-                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
-        yield "event: close\ndata: \n\n"
+        try:
+            # Send conv_id to client
+            yield f"data: {json.dumps({'type': 'conv_id', 'id': conv_id})}\n\n"
+            while True:
+                try:
+                    chunk = q.get(timeout=2)
+                    if chunk is None:
+                        break
+                    yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
+                except queue.Empty:
+                    if abort_evt.is_set():
+                        break
+                    yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
+            yield "event: close\ndata: \n\n"
+        finally:
+            global is_generating
+            is_generating = False
 
     return Response(generate(), mimetype="text/event-stream",
                     headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+@app.route("/api/logs", methods=["GET"])
+def api_logs():
+    return jsonify({"logs": "".join(log_buffer.q)})
+
+@app.route("/api/logs/stream")
+def stream_logs():
+    def generate():
+        last_logs = ""
+        while True:
+            current_logs = "".join(log_buffer.q)
+            if current_logs != last_logs:
+                yield f"data: {json.dumps({'logs': current_logs})}\n\n"
+                last_logs = current_logs
+            time.sleep(0.5)
+    return Response(generate(), mimetype="text/event-stream")
+
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True, threaded=True)

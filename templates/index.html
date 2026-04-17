@@ -20,6 +20,7 @@
             <div class="top-right">
                 <button id="btn-sidebar" class="icon-btn sidebar-toggle" title="תפריט"><i class="fa-solid fa-bars"></i></button>
                 <button id="btn-settings" class="icon-btn" title="הגדרות מתקדמות"><i class="fa-solid fa-gear"></i></button>
+                <button id="btn-terminal" class="icon-btn" title="בקרי טרמינל (לוגים)"><i class="fa-solid fa-terminal"></i></button>
                 <h1>JARVIS</h1>
             </div>
             <div class="top-center">
@@ -47,15 +48,6 @@
                 </div>
             </div>
             <div class="top-left">
-                <!-- Segmented Vision Control -->
-                <div class="vision-toggle-group" id="vision-toggle-group">
-                    <button type="button" class="vision-btn active" data-val="vlm" title="ראייה טבעית עם המודל הראשי">
-                        <i class="fa-regular fa-eye"></i> טבעי (VLM)
-                    </button>
-                    <button type="button" class="vision-btn" data-val="sub_agent" title="סוכן משנה מהיר לקואורדינטות">
-                        <i class="fa-solid fa-robot"></i> סוכן מהיר
-                    </button>
-                </div>
 
                 <button id="btn-load" class="ctrl-btn load-btn" title="טען מודל"><i class="fa-solid fa-bolt"></i> טען</button>
                 <button id="btn-unload" class="ctrl-btn unload-btn" title="כבה מודל"><i class="fa-solid fa-power-off"></i> כבה</button>
@@ -113,7 +105,8 @@
             <div class="input-row">
                 <button id="btn-upload" class="icon-btn" title="צרף תמונה"><i class="fa-solid fa-paperclip"></i></button>
                 <textarea id="text-input" placeholder="כתוב לג'ארביס..." rows="1"></textarea>
-                <button id="btn-mic" class="icon-btn mic-btn" title="הקלט קול"><i id="mic-icon" class="fa-solid fa-microphone"></i></button>
+                <button id="btn-call" class="icon-btn call-btn" title="מצב שיחה קולית (Voice Mode)"><i id="call-icon" class="fa-solid fa-phone"></i></button>
+                <button id="btn-mic" class="icon-btn mic-btn" title="הקלט הודעה קולית"><i id="mic-icon" class="fa-solid fa-microphone"></i></button>
                 <button id="btn-send" class="icon-btn send-btn" title="שלח"><i id="send-icon" class="fa-solid fa-paper-plane"></i></button>
             </div>
             <input type="file" id="file-upload" accept="image/*" class="hidden">
@@ -131,13 +124,51 @@
             <div class="settings-body">
                 <!-- Engine Toggle -->
                 <section class="settings-section">
-                    <h3><i class="fa-solid fa-brain"></i> מנוע ליבה (Engine)</h3>
+                    <h3><i class="fa-solid fa-server"></i> שרת שפה (LLM Backend)</h3>
                     <div class="engine-toggle-group" id="engine-toggle-group">
                         <button type="button" class="engine-btn active" data-val="local">
-                            <i class="fa-solid fa-microchip"></i> ריצה מקומית (Ollama)
+                            <i class="fa-solid fa-microchip"></i> מנוע מקומי
                         </button>
                         <button type="button" class="engine-btn" data-val="cloud">
-                            <i class="fa-solid fa-cloud"></i> ענן (Claude / GPT)
+                            <i class="fa-solid fa-cloud"></i> מנוע ענן
+                        </button>
+                    </div>
+                </section>
+
+                <!-- Multimedia & Peripheral Models -->
+                <section class="settings-section">
+                    <h3><i class="fa-solid fa-microchip"></i> מעגלי משנה (Vision, STT, TTS)</h3>
+                    
+                    <label class="sp-label">ראייה ממוחשבת (Vision Backend)</label>
+                    <div class="engine-toggle-group" id="vision-settings-group">
+                        <button type="button" class="engine-btn vision-btn active" data-val="vlm">
+                            <i class="fa-solid fa-eye"></i> ראייה טבעית (VLM)
+                        </button>
+                        <button type="button" class="engine-btn vision-btn" data-val="ocr">
+                            <i class="fa-solid fa-crosshairs"></i> אופטי סופר-מהיר (OCR)
+                        </button>
+                    </div>
+
+                    <label class="sp-label" style="margin-top: 15px;">זיהוי דיבור (Speech-to-Text)</label>
+                    <div class="engine-toggle-group" id="stt-settings-group">
+                        <button type="button" class="engine-btn stt-btn active" data-val="browser">
+                            <i class="fa-solid fa-globe"></i> דפדפן (מהיר)
+                        </button>
+                        <button type="button" class="engine-btn stt-btn" data-val="whisper">
+                            <i class="fa-solid fa-microphone-lines"></i> מנוע מקומי (Whisper)
+                        </button>
+                    </div>
+
+                    <label class="sp-label" style="margin-top: 15px;">דיבור קול (Text-to-Speech)</label>
+                    <div class="engine-toggle-group" id="tts-settings-group">
+                        <button type="button" class="engine-btn tts-btn active" data-val="none">
+                            <i class="fa-solid fa-volume-xmark"></i> ללא (שקט)
+                        </button>
+                        <button type="button" class="engine-btn tts-btn" data-val="kokoro">
+                            <i class="fa-solid fa-wave-square"></i> מנוע Kokoro
+                        </button>
+                        <button type="button" class="engine-btn tts-btn" data-val="omnivoice">
+                            <i class="fa-solid fa-podcast"></i> מנוע OmniVoice
                         </button>
                     </div>
                 </section>
@@ -170,6 +201,22 @@
                 <span id="settings-status" class="settings-status"></span>
                 <button id="btn-save-settings" class="ctrl-btn load-btn"><i class="fa-solid fa-save"></i> שמור הגדרות</button>
             </footer>
+        </div>
+    </div>
+
+    <!-- Terminal Overlay -->
+    <div id="terminal-overlay" class="terminal-overlay hidden">
+        <div class="terminal-header">
+            <h3><i class="fa-solid fa-terminal"></i> מסוף פעילות</h3>
+            <div style="display:flex; gap:6px; align-items:center;">
+                <button id="terminal-copy" class="icon-btn" title="העתק לוג"><i class="fa-regular fa-copy"></i></button>
+                <button id="terminal-close" class="icon-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+        </div>
+        <div id="terminal-output" class="terminal-output"></div>
+        <div class="terminal-input-container">
+            <span class="prompt-char">&gt;</span>
+            <input type="text" id="terminal-input" placeholder="Type a command (OS shell) and press Enter..." autocomplete="off">
         </div>
     </div>
 

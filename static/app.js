@@ -40,15 +40,47 @@ document.addEventListener('DOMContentLoaded', () => {
     let isSending = false;
     let currentConvId = null;
 
+    let ttsAudioQueue = [];
+    let isPlayingTTS = false;
+    let currentTTSAudio = null;
+
+    function playNextTTS() {
+        if (ttsAudioQueue.length === 0) {
+            isPlayingTTS = false;
+            // Resume voice mode listening if active!
+            if (isVoiceModeActive && continuousRecognition) {
+                try { continuousRecognition.start(); } catch(e){}
+            }
+            return;
+        }
+        isPlayingTTS = true;
+        const b64 = ttsAudioQueue.shift();
+        currentTTSAudio = new Audio("data:audio/wav;base64," + b64);
+        currentTTSAudio.onended = playNextTTS;
+        currentTTSAudio.play().catch(e => { playNextTTS(); });
+    }
+
     let currentVisionMode = 'vlm';
-    const visionBtns = document.querySelectorAll('.vision-btn');
-    visionBtns.forEach(btn => {
-        btn.addEventListener('click', () => {
-            visionBtns.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-            currentVisionMode = btn.getAttribute('data-val');
+    let currentSTTMode = 'whisper';
+    let currentTTSMode = 'none';
+
+    // Pre-request mic permission at load so pywebview doesn't show ugly popup later
+    try { navigator.mediaDevices.getUserMedia({ audio: true }).then(s => s.getTracks().forEach(t => t.stop())).catch(() => {}); } catch(e) {}
+
+    function setupToggleGroup(selector, btnClass, callback) {
+        const btns = document.querySelectorAll(selector + ' .' + btnClass);
+        btns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                btns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                callback(btn.getAttribute('data-val'));
+            });
         });
-    });
+    }
+
+    setupToggleGroup('#vision-settings-group', 'vision-btn', val => currentVisionMode = val);
+    setupToggleGroup('#stt-settings-group', 'stt-btn', val => currentSTTMode = val);
+    setupToggleGroup('#tts-settings-group', 'tts-btn', val => currentTTSMode = val);
 
     // ═══════════════════════════════════════
     //  SIDEBAR
@@ -367,6 +399,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <i class="fa-solid fa-check model-card-check"></i>
                 `;
                 card.addEventListener('click', () => {
+                    modelSelect.dataset.userSelected = 'true';
                     modelSelect.value = m.name;
                     modelNameDisplay.textContent = m.name;
                     modelDropdown.classList.add('hidden');
@@ -422,6 +455,13 @@ document.addEventListener('DOMContentLoaded', () => {
             _cachedLoadedModels = ld.loaded || [];
 
             if (_cachedLoadedModels.length > 0) {
+                const loadedName = _cachedLoadedModels[0].name;
+                if (!modelSelect.dataset.userSelected && modelSelect.value !== loadedName) {
+                    modelSelect.value = loadedName;
+                    if (modelNameDisplay) modelNameDisplay.textContent = loadedName;
+                    loadModelList();
+                }
+
                 const current = _cachedLoadedModels.find(m => m.name === modelSelect.value);
                 if (current) {
                     modelDot.className = 'dot on';
@@ -1045,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Show processing indicator
                 btnMic.classList.add('transcribing');
                 micIcon.className = 'fa-solid fa-cloud-arrow-up fa-bounce';
-                textInput.placeholder = '⏳ מתמלל ושומר (Gemma4)...';
+                textInput.placeholder = currentSTTMode === 'whisper' ? '⏳ מתמלל מקומית (Whisper-HE)...' : '⏳ מתמלל (Gemma4)...';
 
                 try {
                     // Convert blob to base64
@@ -1055,12 +1095,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     uint8.forEach(b => binary += String.fromCharCode(b));
                     const audio_b64 = btoa(binary);
 
-                    // Send to backend to save the file and transcribe via model
-                    const model = modelSelect.value || 'gemma4:e2b';
+                    // Send to backend to save the file and transcribe
+                    const model = modelSelect.value || 'gemma4:e4b';
+                    const stt_mode = currentSTTMode === 'whisper' ? 'whisper' : 'gemma';
                     const resp = await fetch('/api/transcribe_and_save', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ audio_b64, model })
+                        body: JSON.stringify({ audio_b64, model, stt_mode })
                     });
                     const result = await resp.json();
                     
@@ -1106,11 +1147,135 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // ═══════════════════════════════════════
-    //  SEND
+    //  CONTINUOUS VOICE MODE (PHONE CALL)
+    // ═══════════════════════════════════════
+    let isVoiceModeActive = false;
+    let continuousRecognition = null;
+
+    const btnCall = document.getElementById('btn-call');
+    const callIcon = document.getElementById('call-icon');
+    let voiceCallStream = null;
+    let voiceCallRecorder = null;
+
+    function toggleVoiceMode() {
+        isVoiceModeActive = !isVoiceModeActive;
+
+        if (isVoiceModeActive) {
+            btnCall.classList.add('recording');
+            callIcon.className = 'fa-solid fa-phone-slash';
+            textInput.placeholder = '📞 מצב שיחה פעיל — מאזין...';
+            voiceCallListen(); // Start the loop
+        } else {
+            btnCall.classList.remove('recording');
+            callIcon.className = 'fa-solid fa-phone';
+            textInput.placeholder = 'כתוב לג\'ארביס...';
+            if (voiceCallRecorder && voiceCallRecorder.state !== 'inactive') voiceCallRecorder.stop();
+            if (voiceCallStream) { voiceCallStream.getTracks().forEach(t => t.stop()); voiceCallStream = null; }
+        }
+    }
+
+    async function voiceCallListen() {
+        if (!isVoiceModeActive || isSending || isPlayingTTS) {
+            // Wait and retry
+            if (isVoiceModeActive) setTimeout(voiceCallListen, 500);
+            return;
+        }
+        try {
+            voiceCallStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const chunks = [];
+            const opts = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+                ? { mimeType: 'audio/webm;codecs=opus' } : {};
+            voiceCallRecorder = new MediaRecorder(voiceCallStream, opts);
+            
+            voiceCallRecorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            voiceCallRecorder.onstop = async () => {
+                if (voiceCallStream) { voiceCallStream.getTracks().forEach(t => t.stop()); voiceCallStream = null; }
+                if (!isVoiceModeActive) return;
+                
+                const blob = new Blob(chunks, { type: voiceCallRecorder.mimeType || 'audio/webm' });
+                if (blob.size < 2000) { voiceCallListen(); return; } // Too short
+                
+                textInput.placeholder = '📞 מעבד דיבור...';
+                try {
+                    const ab = await blob.arrayBuffer();
+                    const uint8 = new Uint8Array(ab);
+                    let bin = ''; uint8.forEach(b => bin += String.fromCharCode(b));
+                    const b64 = btoa(bin);
+                    
+                    // Use local Whisper STT
+                    const resp = await fetch('/api/stt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ audio_b64: b64 })
+                    });
+                    const result = await resp.json();
+                    const text = (result.text || '').trim();
+                    
+                    if (text) {
+                        textInput.value = text;
+                        triggerSend(); // Auto send
+                    } else {
+                        textInput.placeholder = '📞 לא זוהה דיבור — ממשיך להאזין...';
+                        setTimeout(voiceCallListen, 300);
+                    }
+                } catch (e) {
+                    console.warn('Voice call STT error:', e);
+                    if (isVoiceModeActive) setTimeout(voiceCallListen, 500);
+                }
+            };
+            
+            voiceCallRecorder.start();
+            textInput.placeholder = '📞 🔴 מאזין...';
+            
+            // Auto-stop after 8 seconds of recording
+            setTimeout(() => {
+                if (voiceCallRecorder && voiceCallRecorder.state !== 'inactive') {
+                    voiceCallRecorder.stop();
+                }
+            }, 8000);
+            
+        } catch (e) {
+            console.warn('Voice call mic error:', e);
+            if (isVoiceModeActive) setTimeout(voiceCallListen, 1000);
+        }
+    }
+
+    if(btnCall) btnCall.addEventListener('click', toggleVoiceMode);
+
+    // ═══════════════════════════════════════
+    //  SEND & INPUT
     // ═══════════════════════════════════════
     document.getElementById('btn-send').addEventListener('click', triggerSend);
     textInput.addEventListener('keypress', e => {
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); triggerSend(); }
+    });
+
+    // ═══════════════════════════════════════
+    //  CTRL+V PASTE SUPPORT (IMAGES)
+    // ═══════════════════════════════════════
+    document.addEventListener('paste', e => {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let item of items) {
+            if (item.type.indexOf('image/') === 0) {
+                const blob = item.getAsFile();
+                const reader = new FileReader();
+                reader.onload = ev => {
+                    currentImages.push(ev.target.result);
+                    mediaPreview.classList.remove('hidden');
+                    const w = document.createElement('div');
+                    w.style.cssText = 'display:flex;align-items:center;gap:4px;';
+                    w.innerHTML = `<img src="${ev.target.result}" class="thumb"><button class="remove-media" title="הסר"><i class="fa-solid fa-xmark"></i></button>`;
+                    w.querySelector('.remove-media').onclick = () => {
+                        const idx = currentImages.indexOf(ev.target.result);
+                        if (idx > -1) currentImages.splice(idx, 1);
+                        w.remove();
+                        if (currentImages.length === 0) mediaPreview.classList.add('hidden');
+                    };
+                    mediaPreview.appendChild(w);
+                };
+                reader.readAsDataURL(blob);
+            }
+        }
     });
 
     function triggerSend() {
@@ -1176,7 +1341,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const resp = await fetch('/chat', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ message: text, images, model, conv_id: currentConvId, vision_mode: visionMode, engine: currentEngine })
+                body: JSON.stringify({ 
+                    message: text, 
+                    images, 
+                    model, 
+                    conv_id: currentConvId, 
+                    vision_mode: currentVisionMode, 
+                    stt_mode: currentSTTMode,
+                    tts_mode: currentTTSMode,
+                    engine: currentEngine 
+                })
             });
 
             if (!resp.ok) {
@@ -1194,7 +1368,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!isSending) break;
                 const { value, done } = await reader.read();
                 if (done || !isSending) {
-                    if (!isDone) {
+                    if (!isDone && isSending) {
                         // Stream ended unexpectedly (e.g. server restarted mid-generation)
                         throw new Error('Connection lost mid-generation');
                     }
@@ -1300,6 +1474,11 @@ document.addEventListener('DOMContentLoaded', () => {
                             addAction(d.tool, d.result);
                             break;
 
+                        case 'tts_audio':
+                            ttsAudioQueue.push(d.audio_b64);
+                            if (!isPlayingTTS) playNextTTS();
+                            break;
+
                         case 'narration': {
                             // Show narration as a styled status line
                             const narRow = document.createElement('div');
@@ -1381,20 +1560,125 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         } catch (err) {
-            addError('שגיאת תקשורת: ' + err.message);
-            if (bot) {
-                bot.label.textContent = 'שגיאת רשת';
-                bot.spinner.className = 'fa-solid fa-triangle-exclamation';
-                bot.spinner.style.color = 'var(--red)';
-                if (bot.tw) {
-                    bot.tw.classList.add('collapsed');
-                    bot.tw.classList.remove('expanded');
+            if (isSending) {
+                addError('שגיאת תקשורת: ' + err.message);
+                if (bot) {
+                    bot.label.textContent = 'שגיאת רשת';
+                    bot.spinner.className = 'fa-solid fa-triangle-exclamation';
+                    bot.spinner.style.color = 'var(--red)';
+                    if (bot.tw) {
+                        bot.tw.classList.add('collapsed');
+                        bot.tw.classList.remove('expanded');
+                    }
                 }
             }
+
         } finally {
             clearInterval(timer);
             isSending = false;
             resetSendButton();
         }
     }
+
+    // ═══════════════════════════════════════
+    //  TERMINAL OVERLAY
+    // ═══════════════════════════════════════
+    const btnTerminal = document.getElementById('btn-terminal');
+    const terminalOverlay = document.getElementById('terminal-overlay');
+    const terminalClose = document.getElementById('terminal-close');
+    const terminalOutput = document.getElementById('terminal-output');
+    const terminalInput = document.getElementById('terminal-input');
+    let terminalPollInterval = null;
+
+    if (terminalInput) {
+        terminalInput.addEventListener('keydown', async (e) => {
+            if (e.key === 'Enter') {
+                const cmd = terminalInput.value.trim();
+                if (!cmd) return;
+                terminalInput.value = '';
+                try {
+                    await fetch('/api/terminal/input', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ command: cmd })
+                    });
+                } catch(err) {}
+            }
+        });
+    }
+
+    btnTerminal.addEventListener('click', () => {
+        const isHidden = terminalOverlay.classList.contains('hidden');
+        if (isHidden) {
+            terminalOverlay.classList.remove('hidden');
+            startTerminalPolling();
+        } else {
+            terminalOverlay.classList.add('hidden');
+            stopTerminalPolling();
+        }
+    });
+
+    terminalClose.addEventListener('click', () => {
+        terminalOverlay.classList.add('hidden');
+        stopTerminalPolling();
+    });
+
+    // Terminal copy button
+    const terminalCopy = document.getElementById('terminal-copy');
+    if (terminalCopy) {
+        terminalCopy.addEventListener('click', () => {
+            const text = terminalOutput.innerText || terminalOutput.textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                terminalCopy.innerHTML = '<i class="fa-solid fa-check"></i>';
+                terminalCopy.title = 'הועתק!';
+                setTimeout(() => {
+                    terminalCopy.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                    terminalCopy.title = 'העתק לוג';
+                }, 2000);
+            }).catch(() => {
+                // Fallback for pywebview where clipboard API may not work
+                const range = document.createRange();
+                range.selectNodeContents(terminalOutput);
+                const sel = window.getSelection();
+                sel.removeAllRanges();
+                sel.addRange(range);
+                document.execCommand('copy');
+                sel.removeAllRanges();
+                terminalCopy.innerHTML = '<i class="fa-solid fa-check"></i>';
+                setTimeout(() => {
+                    terminalCopy.innerHTML = '<i class="fa-regular fa-copy"></i>';
+                }, 2000);
+            });
+        });
+    }
+
+    function startTerminalPolling() {
+        if (terminalPollInterval) return;
+        
+        // Use fetch polling instead of SSE — more reliable in pywebview
+        async function pollLogs() {
+            try {
+                const r = await fetch('/api/logs/poll');
+                const d = await r.json();
+                if (d.logs) {
+                    const isScrolledToBottom = terminalOutput.scrollHeight - terminalOutput.clientHeight <= terminalOutput.scrollTop + 30;
+                    const lines = d.logs.split('\n');
+                    terminalOutput.innerHTML = lines.map(line => `<div class="log-line">${esc(line)}</div>`).join('');
+                    if (isScrolledToBottom) {
+                        terminalOutput.scrollTop = terminalOutput.scrollHeight;
+                    }
+                }
+            } catch (err) { /* server not ready yet */ }
+        }
+        pollLogs(); // Initial load
+        terminalPollInterval = setInterval(pollLogs, 1000);
+    }
+
+    function stopTerminalPolling() {
+        if (terminalPollInterval) {
+            clearInterval(terminalPollInterval);
+            terminalPollInterval = null;
+        }
+    }
+
 });

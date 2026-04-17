@@ -5,6 +5,11 @@
 import json
 import re
 import requests
+from requests.adapters import HTTPAdapter
+
+ollama_session = requests.Session()
+adapter = HTTPAdapter(pool_connections=10, pool_maxsize=10)
+ollama_session.mount('http://', adapter)
 import sys
 from typing import Dict, Any, Tuple, List
 from tools_registry import ALL_TOOLS
@@ -15,31 +20,56 @@ import os
 PROJECT_DIR = os.path.dirname(os.path.abspath(__file__))
 MEMORY_FILE = os.path.join(PROJECT_DIR, "user_memories.json")
 
+_cached_tools_text = None
+
 def build_tools_description() -> str:
-    """Build a COMPACT tool list - but keep full definitions so LLM knows arguments."""
+    """Build ultra-compact tool list — first sentence only, no full docs.
+    Every token saved = ~0.15s less prompt eval on Vulkan."""
+    global _cached_tools_text
+    if _cached_tools_text is not None:
+        return _cached_tools_text
+        
     desc = []
     for t in ALL_TOOLS:
-        # We must keep the full description so the LLM knows available sub-actions (e.g. for computer_action)
-        short_desc = t.description.strip().replace('\n', ' ')
+        # Take ONLY the first line/sentence of the description
+        first_line = t.description.strip().split('\n')[0].strip()
+        # Truncate to 80 chars max
+        if len(first_line) > 80:
+            first_line = first_line[:77] + "..."
         args_str = ""
         if hasattr(t, 'args') and t.args:
-            args_str = f" | args: {list(t.args.keys())}"
-        desc.append(f"- {t.name}{args_str}: {short_desc}")
-    return "\n".join(desc)
+            args_str = f"({', '.join(t.args.keys())})"
+        desc.append(f"- {t.name}{args_str}: {first_line}")
+        
+    _cached_tools_text = "\n".join(desc)
+    return _cached_tools_text
+
+_memories_cache = None
+_last_mem_mtime = 0
 
 def load_memories_snapshot() -> str:
-    """Load stored memories from file and return a formatted string for the system prompt."""
+    """Load stored memories from file and return a formatted string for the system prompt. Uses cache."""
+    global _memories_cache, _last_mem_mtime
     try:
         if not os.path.exists(MEMORY_FILE):
             return ""
+            
+        mtime = os.path.getmtime(MEMORY_FILE)
+        if _memories_cache is not None and mtime <= _last_mem_mtime:
+            return _memories_cache
+            
         with open(MEMORY_FILE, "r", encoding="utf-8") as f:
             memories = json.load(f)
         if not memories:
-            return ""
-        # Only last 15 memories to not bloat the context
-        recent = memories[-15:]
-        lines = [f"  - {m['fact']} (saved: {m['date']})" for m in recent]
-        return "\nSTORED MEMORIES (important facts I know about the user):\n" + "\n".join(lines)
+            _memories_cache = ""
+        else:
+            # Only last 15 memories to not bloat the context
+            recent = memories[-15:]
+            lines = [f"  - {m['fact']} (saved: {m['date']})" for m in recent]
+            _memories_cache = "\nSTORED MEMORIES (important facts I know about the user):\n" + "\n".join(lines)
+            
+        _last_mem_mtime = mtime
+        return _memories_cache
     except Exception:
         return ""
 
@@ -67,53 +97,24 @@ def generate_system_prompt(vision_mode: str = "vlm") -> str:
 
     tools_text = build_tools_description()
 
-    return f"""CRITICAL RULE — READ FIRST:
-You MUST NEVER output English reasoning, analysis, or planning text. NEVER write "The user is asking..." or "I should use..." or "Let me check...". Your output is ONLY: a JSON tool call OR a short Hebrew answer. NOTHING ELSE. Violations are UNACCEPTABLE.
-
-IDENTITY: {persona}
+    # ── Ultra-compact prompt: ~400 tokens instead of ~1500 ──
+    # Every token saved = ~0.15s faster on Vulkan prompt eval
+    tools_names = ", ".join(t.name for t in ALL_TOOLS)
+    
+    return f"""{persona}
 USER: אלחנן כהן, 21, ביתר עילית.{memories_section}
-
-STYLE: {style}
+{style}
 {extra_rules}
 
-TOOLS FORMAT:
-[{{"narration":"הודעה קצרה","tool":"tool_name","args":{{"key":"val"}}}}]
-- "narration" = MANDATORY rich Hebrew sentence explaining what you will do
-- "tool" value MUST be a real tool name from the list below. NEVER null, NEVER empty string.
-- Output ONLY the JSON array. No text before or after.
-- Chain multiple tools: [{{"tool":"a","args":{{}}}},{{"tool":"b","args":{{}}}}]
-
-EXAMPLES:
-"מה השעה?" → [{{"narration":"אני בודק את השעה כעת, אדוני.","tool":"get_time","args":{{}}}}]
-"תפתח ספוטיפיי" → [{{"narration":"מיד, אדוני. אני פותח את Spotify עבורך.","tool":"launch_app","args":{{"app_name":"spotify"}}}}]
-"תנגן Ticket to Ride" → [{{"narration":"בחירה מצוינת, אדוני. אני מנגן את השיר כעת.","tool":"play_song","args":{{"song_name":"Ticket to Ride"}}}}]
-"מה מחיר הביטקוין?" → [{{"narration":"אדוני, אני מבצע חיפוש מעמיק באינטרנט כדי להביא לך את מחיר הביטקוין העדכני.","tool":"deep_research","args":{{"query":"bitcoin price USD"}}}}]
-
-TOOL SELECTION RULES:
-- Prices / exchange rates / crypto → ALWAYS use deep_research (more accurate, real-time APIs)
-- General web questions / news / facts → use search_web
-- Telegram news → use read_telegram_news
-
-FORBIDDEN PATTERNS (NEVER output these):
-✗ {{"tool": null}} — tool value MUST be a real tool name
-✗ "The user is asking..." / "I should use..." / "Let me check..."
-✗ English analysis paragraphs
-✗ "Self-Correction" / "Response Plan" / numbered steps
-
-RULES:
-1. Tool needed? Output JSON ONLY. No text around it.
-2. NARRATION IS MANDATORY: Before EVERY tool call, you MUST include a "narration" field in the JSON with a rich, unique, and polite Hebrew sentence explaining what you are about to do. Always address the user respectfully as "אדוני". Do not use repeating, boring templates!
-3. No tool needed? Respond in Hebrew ONLY. Short (2-3 sentences).
-4. NEVER ask confirmation. Full autonomy.
-5. You are Jarvis. NOT Google/OpenAI AI. You CAN control the computer.
-6. User shares personal info → call remember_fact.
-7. User sends an IMAGE → describe what you see, answer IN HEBREW directly. Do NOT call any tool.
-8. Don't know something → call recall_memories or search_web.
-9. After tool result arrives, give SHORT Hebrew status. Don't repeat raw output.
+TOOLS — output JSON array ONLY when tool needed:
+[{{"narration":"הסבר בעברית","tool":"TOOL_NAME","args":{{"k":"v"}}}}]
+narration=MANDATORY Hebrew sentence. tool=real name. No English analysis.
+Tools: {tools_names}
 
 {vision_text}
 
-Available Tools:
+RULES: Hebrew only. No English reasoning. Tool needed→JSON only. No tool→short Hebrew answer. Never ask confirmation. Image→describe in Hebrew. Personal info→remember_fact.
+
 {tools_text}
 """
 
@@ -172,7 +173,7 @@ def parse_gemma_response(text: str) -> Tuple[str, List[Dict[str, Any]], str]:
     return thinking, tool_commands, conversation
 
 
-def run_gemma_chat_stream(messages: List[Dict[str, str]], model: str = "gemma4:e4b", vision_mode: str = "vlm"):
+def run_gemma_chat_stream(messages: List[Dict[str, str]], model: str = "gemma2:9b", vision_mode: str = "vlm"):
     if not any(m["role"] == "system" for m in messages):
         messages.insert(0, {"role": "system", "content": generate_system_prompt(vision_mode)})
         
@@ -182,15 +183,15 @@ def run_gemma_chat_stream(messages: List[Dict[str, str]], model: str = "gemma4:e
         "stream": True,
         "options": {
             "temperature": 0.2,
-            "num_ctx": 4096,       # Lowered from 8192 for MUCH faster TTFT
-            "num_predict": 1024,   # Lowered from 2048 to save memory
+            "num_ctx": 2048,       # Ultra-compact prompt allows small ctx = MUCH faster TTFT on Vulkan
+            "num_predict": 512,    # Enough for most responses, saves memory
         },
         "keep_alive": "30m"
     }
     
     try:
         # connect timeout=10s, read timeout=300s (model loading can take 60s+)
-        response = requests.post(OLLAMA_URL, json=payload, stream=True, timeout=(10, 300))
+        response = ollama_session.post(OLLAMA_URL, json=payload, stream=True, timeout=(10, 300))
         yield {"type": "status", "content": "connected"}
         if response.status_code == 200:
             full_text = ""

@@ -14,6 +14,7 @@
             --green-dim: rgba(74,222,128,0.12);
             --red: #f87171;
             --yellow: #facc15;
+            --purple: #818cf8;
             --bg: #080c10;
             --surface: #0f1521;
             --surface2: #141d2b;
@@ -33,7 +34,8 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
         
         /* Animated background */
@@ -43,11 +45,12 @@
             background: radial-gradient(ellipse at 20% 50%, rgba(0,229,255,0.04) 0%, transparent 60%),
                         radial-gradient(ellipse at 80% 20%, rgba(129,140,248,0.04) 0%, transparent 60%);
             pointer-events: none;
+            z-index: -1;
         }
         
         .setup-container {
             width: 100%;
-            max-width: 680px;
+            max-width: 720px;
             padding: 24px;
             animation: fadeIn 0.6s ease;
         }
@@ -63,7 +66,7 @@
             object-fit: cover;
             margin-bottom: 16px;
             border: 1px solid var(--border);
-            display: none; /* hidden until logo added */
+            display: none;
         }
         .logo-img.loaded { display: block; margin: 0 auto 16px; }
         .logo-icon {
@@ -171,6 +174,63 @@
         .terminal .t-warn { color: var(--yellow); }
         .terminal .t-cursor { display: inline-block; width: 8px; height: 14px; background: var(--primary); animation: blink 1s step-end infinite; vertical-align: middle; }
         
+        /* Hardware Specs Panel */
+        .hw-panel {
+            background: rgba(0,229,255,0.03);
+            border: 1px solid rgba(0,229,255,0.12);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 18px;
+        }
+        .hw-panel-title {
+            color: var(--primary);
+            font-family: var(--mono);
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .hw-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 12px;
+        }
+        .hw-item {
+            background: rgba(255,255,255,0.03);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 10px 12px;
+            text-align: center;
+        }
+        .hw-item-label {
+            font-size: 0.7em;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 4px;
+        }
+        .hw-item-value {
+            font-size: 0.82em;
+            color: var(--text);
+            font-weight: 600;
+            word-break: break-word;
+        }
+        .hw-recommendation {
+            margin-top: 14px;
+            padding: 12px 14px;
+            background: linear-gradient(135deg, rgba(0,229,255,0.06), rgba(129,140,248,0.06));
+            border: 1px solid rgba(0,229,255,0.15);
+            border-radius: 10px;
+            font-size: 0.85em;
+            color: var(--text);
+            line-height: 1.6;
+        }
+        .hw-recommendation strong {
+            color: var(--primary);
+        }
+
         /* Model Selection */
         .model-grid {
             display: grid;
@@ -197,6 +257,11 @@
             border-radius: 50%; font-size: 0.7em; font-weight: 900;
             display: flex; align-items: center; justify-content: center;
         }
+        .model-card.disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
         .model-name { font-weight: 700; font-size: 0.95em; margin-bottom: 4px; }
         .model-size { font-size: 0.72em; color: var(--text3); font-family: var(--mono); }
         .model-desc { font-size: 0.78em; color: var(--text2); margin-top: 6px; }
@@ -209,16 +274,16 @@
         }
         .badge-fast { background: rgba(74,222,128,0.15); color: var(--green); }
         .badge-smart { background: rgba(129,140,248,0.15); color: #818cf8; }
-        .badge-vision { background: rgba(251,191,36,0.15); color: var(--yellow); }
         .badge-rec { background: rgba(0,229,255,0.15); color: var(--primary); }
+        .badge-heavy { background: rgba(248,113,113,0.12); color: var(--red); }
 
         /* Progress Bar */
         .progress-wrap {
             background: rgba(255,255,255,0.05);
             border-radius: 100px;
-            height: 6px;
+            height: 8px;
             overflow: hidden;
-            margin-top: 12px;
+            margin-top: 14px;
         }
         .progress-bar {
             height: 100%;
@@ -226,11 +291,12 @@
             background: linear-gradient(90deg, var(--primary), #818cf8);
             width: 0%;
             transition: width 0.5s ease;
+            box-shadow: 0 0 12px rgba(0,229,255,0.3);
         }
         .progress-label {
             font-size: 0.75em;
             color: var(--text3);
-            margin-top: 6px;
+            margin-top: 8px;
             font-family: var(--mono);
         }
 
@@ -271,6 +337,30 @@
         @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
         @keyframes spin { to { transform: rotate(360deg); } }
         .spin { animation: spin 1s linear infinite; }
+        
+        /* Done phase celebration */
+        .done-icon {
+            width: 80px; height: 80px;
+            border-radius: 50%;
+            background: var(--green-dim);
+            border: 2px solid var(--green);
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 2.5em;
+            animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes scaleIn { from { transform: scale(0); } to { transform: scale(1); } }
+       
+        .shortcut-note {
+            background: rgba(74,222,128,0.06);
+            border: 1px solid rgba(74,222,128,0.15);
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 0.8em;
+            color: var(--text2);
+            margin-top: 14px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -278,7 +368,6 @@
 <div class="setup-container">
     <!-- Logo -->
     <div class="logo-area">
-        <!-- Logo image — place your logo at static/logo.png and it will appear here -->
         <img id="logo-img" class="logo-img" src="/static/logo.png"
              onload="this.classList.add('loaded'); document.getElementById('logo-icon').style.display='none';"
              onerror="this.style.display='none';">
@@ -329,40 +418,65 @@
     <div class="phase" id="phase-model">
         <div class="card">
             <div class="card-title"><i class="fa-solid fa-brain"></i> בחר מודל AI</div>
-            <p style="font-size:0.82em; color:var(--text2); margin-bottom:14px;">
-                המודל הוא ה"מוח" של ג'ארביס. גדול יותר = חכם יותר, אבל דורש יותר זיכרון RAM.
-            </p>
+            
+            <!-- Hardware Detection Panel -->
+            <div class="hw-panel">
+                <div class="hw-panel-title">
+                    <i class="fa-solid fa-microchip"></i> חומרת המחשב שלך זוהתה
+                </div>
+                <div class="hw-grid">
+                    <div class="hw-item">
+                        <div class="hw-item-label">מעבד</div>
+                        <div class="hw-item-value">{{ specs.cpu if specs else 'טוען...' }}</div>
+                    </div>
+                    <div class="hw-item">
+                        <div class="hw-item-label">כרטיס מסך</div>
+                        <div class="hw-item-value">{{ specs.gpu if specs else 'טוען...' }}</div>
+                    </div>
+                    <div class="hw-item">
+                        <div class="hw-item-label">זיכרון RAM</div>
+                        <div class="hw-item-value">{{ specs.ram if specs else 'טוען...' }}</div>
+                    </div>
+                </div>
+                <div class="hw-recommendation">
+                    <i class="fa-solid fa-star" style="color: var(--yellow); margin-left: 4px;"></i>
+                    ההמלצה שלנו עבורך: <strong>{{ specs.rec_name if specs else 'Gemma 4 4B' }}</strong> 
+                    ({{ specs.rec_size if specs else '~3.3GB' }}) — {{ specs.rec_reason if specs else 'מומלץ' }}
+                </div>
+            </div>
+
             <div class="model-grid" id="model-grid">
-                <div class="model-card" data-model="gemma3:1b" onclick="selectModel(this)">
-                    <div class="model-name">Gemma 3 1B</div>
-                    <div class="model-size">~800MB RAM</div>
+                <div class="model-card" data-model="gemma2:2b" onclick="selectModel(this)">
+                    <div class="model-name">Gemma 2 2B</div>
+                    <div class="model-size">~1.6GB • דגם קל</div>
                     <div class="model-desc">מהיר מאוד, מתאים למחשבים חלשים</div>
                     <span class="model-badge badge-fast">⚡ מהיר</span>
                 </div>
-                <div class="model-card selected" data-model="gemma4:e4b" onclick="selectModel(this)">
-                    <div class="model-name">Gemma 4 4B</div>
-                    <div class="model-size">~3.5GB RAM</div>
+                <div class="model-card" data-model="gemma:7b" onclick="selectModel(this)">
+                    <div class="model-name">Gemma 7B</div>
+                    <div class="model-size">~4.8GB • דגם נפוץ</div>
+                    <div class="model-desc">גרסה 1 הסטנדרטית שפועלת מצוין ואמינה</div>
+                    <span class="model-badge badge-rec">⭐ אמין</span>
+                </div>
+                <div class="model-card" data-model="gemma2:9b" onclick="selectModel(this)">
+                    <div class="model-name">Gemma 2 9B</div>
+                    <div class="model-size">~5.5GB • דגם מאוזן</div>
                     <div class="model-desc">איזון מושלם בין מהירות לאיכות</div>
-                    <span class="model-badge badge-rec">★ מומלץ</span>
+                    <span class="model-badge badge-rec">★ מומלץ לגיימרים</span>
                 </div>
-                <div class="model-card" data-model="gemma4:12b" onclick="selectModel(this)">
-                    <div class="model-name">Gemma 4 12B</div>
-                    <div class="model-size">~8GB RAM</div>
-                    <div class="model-desc">חכם ומדויק, לתשובות מורכבות</div>
-                    <span class="model-badge badge-smart">🧠 חכם</span>
-                </div>
-                <div class="model-card" data-model="llava:7b" onclick="selectModel(this)">
-                    <div class="model-name">LLaVA 7B</div>
-                    <div class="model-size">~5GB RAM</div>
-                    <div class="model-desc">תומך בניתוח תמונות (Vision)</div>
-                    <span class="model-badge badge-vision">👁 Vision</span>
+                <div class="model-card" data-model="gemma2:27b" onclick="selectModel(this)">
+                    <div class="model-name">Gemma 2 27B</div>
+                    <div class="model-size">~16GB • דגם מקסימלי</div>
+                    <div class="model-desc">המודל הכי חכם, דורש RAM רב</div>
+                    <span class="model-badge badge-heavy">🔥 כבד</span>
                 </div>
             </div>
         </div>
         <div id="selected-info" style="text-align:center; color:var(--text3); font-size:0.8em; margin-bottom:12px; font-family:var(--mono);">
-            מודל נבחר: <span id="selected-name" style="color:var(--primary);">gemma4:e4b</span>
+            מודל נבחר: <span id="selected-name" style="color:var(--primary);">gemma2:9b</span>
+            <span id="selected-weight" style="color:var(--text3); margin-right:8px;">~5.5GB</span>
         </div>
-        <button class="btn-primary" onclick="startDownload()">
+        <button class="btn-primary" id="btn-download" onclick="startDownload()">
             <i class="fa-solid fa-download"></i> הורד והתקן מודל
         </button>
     </div>
@@ -374,7 +488,7 @@
             <div class="step active" id="dl-step">
                 <div class="step-icon"><i class="fa-solid fa-cloud-arrow-down spin"></i></div>
                 <div class="step-text">
-                    <div class="step-name" id="dl-model-name">gemma4:e4b</div>
+                    <div class="step-name" id="dl-model-name">gemma2:9b</div>
                     <div class="step-desc">מוריד מ-Ollama Hub...</div>
                 </div>
                 <div class="step-badge" id="dl-percent">0%</div>
@@ -384,7 +498,7 @@
             </div>
             <div class="progress-label" id="dl-label">מאתחל...</div>
             <div class="terminal" id="dl-log" style="margin-top:12px; max-height:150px;">
-                <div class="t-line"><span class="t-prefix">ollama $</span><span id="dl-log-text">pull <span id="dl-m2">gemma4:e4b</span>...</span></div>
+                <div class="t-line"><span class="t-prefix">ollama $</span><span id="dl-log-text">pull <span id="dl-m2">gemma2:9b</span>...</span></div>
                 <span class="t-cursor"></span>
             </div>
         </div>
@@ -393,7 +507,7 @@
     <!-- Phase 4: Done! -->
     <div class="phase" id="phase-done">
         <div class="card" style="text-align:center; padding:40px 24px;">
-            <div style="font-size:3em; margin-bottom:16px;">✅</div>
+            <div class="done-icon">✅</div>
             <div style="font-size:1.4em; font-weight:700; color:var(--green); margin-bottom:8px;">הכל מוכן!</div>
             <div style="font-size:0.85em; color:var(--text2); margin-bottom:24px;">
                 ג'ארביס מותקן ומוכן לשירותך, אדוני.
@@ -401,13 +515,52 @@
             <button class="btn-primary launch" onclick="launchJarvis()">
                 <i class="fa-solid fa-rocket"></i> הפעל את ג'ארביס
             </button>
+            <div class="shortcut-note">
+                <i class="fa-solid fa-desktop"></i> 
+                קיצור דרך <strong>Jarvis AI</strong> נוצר על שולחן העבודה שלך
+            </div>
         </div>
     </div>
 </div>
 
 <script>
     const PHASES = ['phase-install','phase-model','phase-download','phase-done'];
-    let selectedModel = 'gemma4:e4b';
+    let selectedModel = '{{ specs.rec_model if specs else "gemma2:9b" }}';
+    const RAM_GB = {{ specs.ram_gb if specs else 0 }};
+    
+    // Model weight map
+    const MODEL_SIZES = {
+        'gemma2:2b': '~1.6GB',
+        'gemma:7b': '~4.8GB',
+        'gemma2:9b': '~5.5GB',
+        'gemma2:27b': '~16.0GB',
+    };
+    const MODEL_RAM_REQ = {
+        'gemma2:2b': 4,
+        'gemma:7b': 8,
+        'gemma2:9b': 12,
+        'gemma2:27b': 24,
+    };
+    
+    // Pre-select the recommended model and disable heavy ones
+    document.addEventListener('DOMContentLoaded', () => {
+        // Mark recommended as selected
+        document.querySelectorAll('.model-card').forEach(c => {
+            c.classList.remove('selected');
+            const m = c.dataset.model;
+            if (m === selectedModel) c.classList.add('selected');
+            // Disable models that need too much RAM
+            if (RAM_GB > 0 && MODEL_RAM_REQ[m] && RAM_GB < MODEL_RAM_REQ[m]) {
+                c.classList.add('disabled');
+                const desc = c.querySelector('.model-desc');
+                if (desc) desc.textContent = 'דורש יותר זיכרון ממה שיש במחשב';
+            }
+        });
+        document.getElementById('selected-name').textContent = selectedModel;
+        document.getElementById('selected-weight').textContent = MODEL_SIZES[selectedModel] || '';
+        
+        setTimeout(runInstall, 600);
+    });
     
     function showPhase(id) {
         PHASES.forEach(p => document.getElementById(p).classList.remove('active'));
@@ -415,10 +568,12 @@
     }
     
     function selectModel(el) {
+        if (el.classList.contains('disabled')) return;
         document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
         el.classList.add('selected');
         selectedModel = el.dataset.model;
         document.getElementById('selected-name').textContent = selectedModel;
+        document.getElementById('selected-weight').textContent = MODEL_SIZES[selectedModel] || '';
     }
     
     function setStep(id, state, badge) {
@@ -439,7 +594,6 @@
     }
     
     async function runInstall() {
-        // Poll /setup/status for real status updates
         try {
             const resp = await fetch('/setup/install', { method: 'POST' });
             const reader = resp.body.getReader();
@@ -451,8 +605,10 @@
                 const text = dec.decode(value, { stream: true });
                 const lines = text.split('\n').filter(l => l.startsWith('data: '));
                 for (const line of lines) {
-                    const d = JSON.parse(line.slice(6));
-                    handleInstallEvent(d);
+                    try {
+                        const d = JSON.parse(line.slice(6));
+                        handleInstallEvent(d);
+                    } catch {}
                 }
             }
         } catch(e) {
@@ -515,11 +671,6 @@
             window.location.href = '/';
         });
     }
-    
-    // Start install on load
-    window.addEventListener('DOMContentLoaded', () => {
-        setTimeout(runInstall, 600);
-    });
 </script>
 </body>
 </html>

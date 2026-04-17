@@ -196,12 +196,45 @@ def analyze_screen(question="What do you see on the screen?", model="gemma4:e4b"
 
 
 def find_element_on_screen(description, model="gemma4:e4b"):
-    """Use vision model to find a UI element and return its coordinates."""
+    """Use vision model or OCR to find a UI element and return its coordinates."""
     import requests
-
+    import os
+    import json
+    
     filepath, b64 = take_screenshot_raw()
     if filepath is None:
-        return {"error": b64}
+        return json.dumps({"error": b64})
+
+    vision_mode = os.environ.get("JARVIS_VISION_MODE", "vlm")
+    if vision_mode == "ocr":
+        try:
+            import easyocr
+            import numpy as np
+            reader = easyocr.Reader(['he', 'en'], gpu=False, verbose=False)
+            results = reader.readtext(filepath)
+            
+            best_match = None
+            best_score = 0
+            desc_lower = description.lower()
+            
+            for bbox, text, score in results:
+                t_lower = text.lower()
+                if desc_lower in t_lower or t_lower in desc_lower:
+                    if score > best_score:
+                        best_score = score
+                        tl, tr, br, bl = bbox
+                        cx = int((tl[0] + br[0]) / 2)
+                        cy = int((tl[1] + br[1]) / 2)
+                        best_match = {"x": cx, "y": cy, "found": True, "element": text}
+            
+            if best_match:
+                return json.dumps(best_match, ensure_ascii=False)
+            else:
+                return json.dumps({"found": False, "element": "not found via OCR"})
+        except ImportError:
+            return json.dumps({"error": "EasyOCR is not installed. Please run: pip install easyocr"})
+        except Exception as e:
+            return json.dumps({"error": f"OCR error: {e}"})
 
     prompt = f"""Look at this screenshot (1280x720 resolution).
 Find the UI element described as: "{description}"

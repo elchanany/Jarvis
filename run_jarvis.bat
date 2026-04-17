@@ -1,5 +1,8 @@
 @echo off
-cd /d "C:\Users\elchanan yehuda\Documents\Jarvis_Project"
-call venv\Scripts\activate
-python main_brain.py
-pause
+chcp 65001 >nul
+cd /d "%~dp0"
+if exist "venv\Scripts\pythonw.exe" (
+    start "" "venv\Scripts\pythonw.exe" Jarvis.pyw
+) else (
+    start "" pythonw Jarvis.pyw
+)
