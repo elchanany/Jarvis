@@ -448,25 +448,25 @@
             <div class="model-grid" id="model-grid">
                 <div class="model-card" data-model="gemma4:e2b" onclick="selectModel(this)">
                     <div class="model-name">Gemma 4 e2b</div>
-                    <div class="model-size">~1.8GB • דגם קל</div>
+                    <div class="model-size">~7.2GB • דגם קל</div>
                     <div class="model-desc">מהיר מאוד, מתאים למי שאין לו הרבה ראם</div>
                     <span class="model-badge badge-fast">⚡ קליל</span>
                 </div>
                 <div class="model-card" data-model="gemma4:e4b" onclick="selectModel(this)">
                     <div class="model-name">Gemma 4 e4b</div>
-                    <div class="model-size">~3.5GB • דגם מאוזן</div>
+                    <div class="model-size">~9.6GB • דגם מאוזן</div>
                     <div class="model-desc">רץ הכי טוב ומהר. מומלץ לרוב המוחלט של המשתמשים</div>
                     <span class="model-badge badge-rec">⭐ מומלץ בעדיפות עליונה</span>
                 </div>
                 <div class="model-card" data-model="gemma4:26b" onclick="selectModel(this)">
                     <div class="model-name">Gemma 4 26B</div>
-                    <div class="model-size">~14GB • דגם חכם ואיטי</div>
+                    <div class="model-size">~18.0GB • דגם חכם ואיטי</div>
                     <div class="model-desc">הכי חכם מכולם, אך פעולתו איטית יותר כתוצאה מכך</div>
                     <span class="model-badge badge-smart">🧠 חכם (דורש הרבה RAM)</span>
                 </div>
                 <div class="model-card" data-model="gemma4:31b" onclick="selectModel(this)">
                     <div class="model-name">Gemma 4 31B</div>
-                    <div class="model-size">~18GB • דגם מקסימלי</div>
+                    <div class="model-size">~20.0GB • דגם מקסימלי</div>
                     <div class="model-desc">המודל הכבד והגדול ביותר, רק למחשבים חזקים במיוחד</div>
                     <span class="model-badge badge-heavy">🔥 כבד מאוד</span>
                 </div>
@@ -530,10 +530,10 @@
     
     // Model weight map
     const MODEL_SIZES = {
-        'gemma4:e2b': '~1.8GB',
-        'gemma4:e4b': '~3.5GB',
-        'gemma4:26b': '~14.0GB',
-        'gemma4:31b': '~18.0GB',
+        'gemma4:e2b': '~7.2GB',
+        'gemma4:e4b': '~9.6GB',
+        'gemma4:26b': '~18.0GB',
+        'gemma4:31b': '~20.0GB',
     };
     const MODEL_RAM_REQ = {
         'gemma4:e2b': 4,

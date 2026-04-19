@@ -711,12 +711,12 @@ def get_hardware_specs():
         if ram_gb >= 8:
             rec_model = "gemma4:e4b"
             rec_name = "Gemma 4 e4b"
-            rec_size = "~3.5GB"
+            rec_size = "~9.6GB"
             rec_reason = "איזון מושלם בין מהירות לאיכות, הכי מומלץ (Gemma 4)"
         else:
             rec_model = "gemma4:e2b"
             rec_name = "Gemma 4 e2b"
-            rec_size = "~1.8GB"
+            rec_size = "~7.2GB"
             rec_reason = "קל ומהיר, מותאם לזיכרון המוגבל שלך (Gemma 4)"
         
         return {
@@ -733,7 +733,7 @@ def get_hardware_specs():
         return {
             "ram": "לא ידוע", "ram_gb": 0, "gpu": "לא ידוע", "cpu": "לא ידוע",
             "rec_model": "gemma4:e4b", "rec_name": "Gemma 4 e4b",
-            "rec_size": "~3.5GB", "rec_reason": "ברירת מחדל מומלצת",
+            "rec_size": "~9.6GB", "rec_reason": "ברירת מחדל מומלצת",
         }
 
 def is_setup_needed():
