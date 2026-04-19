@@ -1,7 +1,7 @@
 # 🤖 Jarvis — AI Personal Assistant
 
 A **powerful, locally-hosted AI personal assistant**.  
-No cloud, no subscriptions, complete privacy. Powered by [Ollama](https://ollama.com) and Google's Gemma 2 models.
+No cloud, no subscriptions, complete privacy. Powered by [Ollama](https://ollama.com) and Google's Gemma 4 models.
 
 <div align="center">
   <img src="static/logo.png" alt="Jarvis Logo" width="150" />

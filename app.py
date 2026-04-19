@@ -709,20 +709,20 @@ def get_hardware_specs():
         
         # Smart model recommendation based on RAM
         if ram_gb >= 24:
-            rec_model = "gemma2:27b"
-            rec_name = "Gemma 2 27B"
-            rec_size = "~16GB"
-            rec_reason = "יש לך מספיק זיכרון למודל החזק ביותר"
-        elif ram_gb >= 12:
-            rec_model = "gemma2:9b"
-            rec_name = "Gemma 2 9B"
-            rec_size = "~5.5GB"
-            rec_reason = "איזון מושלם בין מהירות לאיכות עבור המחשב שלך"
+            rec_model = "gemma4:26b"
+            rec_name = "Gemma 4 26B"
+            rec_size = "~14GB"
+            rec_reason = "יש לך מספיק זיכרון למודל החזק ביותר (Gemma 4)"
+        elif ram_gb >= 8:
+            rec_model = "gemma4:e4b"
+            rec_name = "Gemma 4 e4b"
+            rec_size = "~3.5GB"
+            rec_reason = "איזון מושלם בין מהירות לאיכות עבור המחשב שלך (Gemma 4)"
         else:
-            rec_model = "gemma2:2b"
-            rec_name = "Gemma 2 2B"
-            rec_size = "~1.6GB"
-            rec_reason = "קל ומהיר, מותאם לזיכרון המוגבל שלך"
+            rec_model = "gemma4:e2b"
+            rec_name = "Gemma 4 e2b"
+            rec_size = "~1.8GB"
+            rec_reason = "קל ומהיר, מותאם לזיכרון המוגבל שלך (Gemma 4)"
         
         return {
             "ram": f"{ram_gb}GB",
@@ -737,8 +737,8 @@ def get_hardware_specs():
     except:
         return {
             "ram": "לא ידוע", "ram_gb": 0, "gpu": "לא ידוע", "cpu": "לא ידוע",
-            "rec_model": "gemma2:9b", "rec_name": "Gemma 2 9B",
-            "rec_size": "~5.5GB", "rec_reason": "ברירת מחדל מומלצת",
+            "rec_model": "gemma4:e4b", "rec_name": "Gemma 4 e4b",
+            "rec_size": "~3.5GB", "rec_reason": "ברירת מחדל מומלצת",
         }
 
 def is_setup_needed():
