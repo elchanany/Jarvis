@@ -65,11 +65,23 @@ def run_cloud_chat_stream(messages: List[Dict[str, Any]], model: str = "claude-3
                 
             # Send done chunk
             think, json_cmds, conv = parse_cloud_response(full_text)
+            
+            # Extract anthropic token usage
+            final_message = stream.get_final_message()
+            in_toks = getattr(final_message.usage, "input_tokens", 0) if hasattr(final_message, "usage") else 0
+            out_toks = getattr(final_message.usage, "output_tokens", 0) if hasattr(final_message, "usage") else 0
+            
             yield {
                 "type": "done",
                 "raw": full_text,
                 "commands": json_cmds,
-                "metrics": {"tps": 0}  # Placeholder for cloud token per second
+                "metrics": {
+                    "tps": 0,
+                    "provider": "anthropic",
+                    "model": model,
+                    "input_tokens": in_toks,
+                    "output_tokens": out_toks
+                }
             }
 
     except Exception as e:
