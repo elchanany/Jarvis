@@ -708,16 +708,11 @@ def get_hardware_specs():
         except: pass
         
         # Smart model recommendation based on RAM
-        if ram_gb >= 24:
-            rec_model = "gemma4:26b"
-            rec_name = "Gemma 4 26B"
-            rec_size = "~14GB"
-            rec_reason = "יש לך מספיק זיכרון למודל החזק ביותר (Gemma 4)"
-        elif ram_gb >= 8:
+        if ram_gb >= 8:
             rec_model = "gemma4:e4b"
             rec_name = "Gemma 4 e4b"
             rec_size = "~3.5GB"
-            rec_reason = "איזון מושלם בין מהירות לאיכות עבור המחשב שלך (Gemma 4)"
+            rec_reason = "איזון מושלם בין מהירות לאיכות, הכי מומלץ (Gemma 4)"
         else:
             rec_model = "gemma4:e2b"
             rec_name = "Gemma 4 e2b"
